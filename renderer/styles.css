@@ -180,12 +180,15 @@ button:disabled { opacity: 0.5; cursor: default; }
 .track { height: 6px; max-width: 520px; border-radius: 3px; background: var(--sprout); overflow: hidden; margin-bottom: var(--s4); }
 .fill { height: 100%; width: 0; background: var(--leaf); transition: width 1s linear; }
 
-.screen { font-size: 13px; color: var(--moss); margin-bottom: var(--s4); display: flex; align-items: center; gap: var(--s2); }
-.screen::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--line); flex: none; }
+.screen { font-size: 13px; color: var(--moss); margin-bottom: var(--s4); display: flex; align-items: flex-start; gap: var(--s2); min-width: 0; }
+.screen::before { content: ""; width: 8px; height: 8px; margin-top: 5px; border-radius: 50%; background: var(--line); flex: none; }
 .screen.focus::before { background: var(--leaf); }
 .screen.neutral::before { background: #9fb59a; }
 .screen.distraction::before { background: #c9940f; }
 .screen strong { color: var(--ink); font-weight: 600; }
+.screen-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 3px; }
+.screen-title { color: var(--ink); }
+.screen-url { display: block; max-width: 100%; overflow-x: auto; color: var(--moss); font-size: 11px; white-space: nowrap; }
 
 .log { margin-top: var(--s5); max-width: 520px; border-top: 1px solid var(--line); }
 .log:empty { display: none; }

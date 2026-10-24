@@ -6,6 +6,7 @@
 
 const c8 = window.c8;
 const $ = (id) => document.getElementById(id);
+const { describeActivity } = window.Concentr8ActivityView;
 
 let state = null;
 let editingPlan = false;
@@ -66,14 +67,6 @@ function ago(iso) {
   if (min < 1) return 'just now';
   if (min < 60) return `${min} min ago`;
   return `${Math.round(min / 60)} h ago`;
-}
-
-function hostOf(url) {
-  try {
-    return new URL(url).hostname.replace(/^www\./, '');
-  } catch {
-    return url;
-  }
 }
 
 function onBreak(session) {
@@ -173,10 +166,13 @@ function paintSession() {
   } else if (!activity) {
     screen.textContent = 'Waiting for macOS permission to see the front app. Check System Settings → Privacy & Security → Automation.';
   } else {
-    const where = activity.url ? hostOf(activity.url) : activity.title || '';
-    const label = verdict?.kind === 'distraction' ? 'Off track' : verdict?.kind === 'focus' ? 'On task' : 'On screen';
+    const view = describeActivity(activity, verdict);
     screen.classList.add(verdict?.kind || 'neutral');
-    screen.innerHTML = `${label}: <strong>${esc(activity.app)}</strong>${where ? ` ${esc(where)}` : ''}`;
+    screen.innerHTML = `<span class="screen-copy">
+      <span>${esc(view.label)}: <strong>${esc(view.app)}</strong></span>
+      ${view.title ? `<span class="screen-title">${esc(view.title)}</span>` : ''}
+      ${view.url ? `<code class="screen-url">${esc(view.url)}</code>` : ''}
+    </span>`;
   }
 
   const words = { nudged: 'Warned about', blocked: 'Closed', returned: 'Came back from' };
