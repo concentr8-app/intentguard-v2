@@ -10,6 +10,7 @@ const { describeActivity } = window.Concentr8ActivityView;
 
 let state = null;
 let editingPlan = false;
+let connectingCanvas = false; // bCourses is optional: its connect screen opens only when asked for
 const painted = {}; // last HTML per list, so unchanged lists aren't re-rendered under the cursor
 
 // ---------- helpers ----------
@@ -78,12 +79,14 @@ function onBreak(session) {
 function paint() {
   if (!state) return;
   const { settings } = state;
-  const needsCanvas = !settings.canvasConnected && !settings.demoMode;
-  $('onboarding').hidden = !needsCanvas;
-  $('home').hidden = needsCanvas;
+  const hasTasks = settings.canvasConnected || settings.demoMode;
+  if (hasTasks) connectingCanvas = false;
+  const showConnect = connectingCanvas && !state.session;
+  $('onboarding').hidden = !showConnect;
+  $('home').hidden = showConnect;
 
   paintStatus();
-  if (!needsCanvas) {
+  if (!showConnect) {
     paintToday();
     paintTasks();
     paintHistory();
@@ -127,6 +130,7 @@ function paintToday() {
   $('plan-empty').hidden = showSession || showPlan;
 
   if (!showSession && !showPlan) {
+    updateIntentButton();
     $('call-hint').textContent = settings.serverConnected
       ? `Or pick it on the phone. Your ${hhmm12(settings.callTime)} call asks the same question.`
       : `Connect the morning call in Settings and Concentr8 asks you this on the phone at ${hhmm12(settings.callTime)}.`;
@@ -217,6 +221,7 @@ function paintSession() {
 
   const breakNow = onBreak(session);
   $('im-stuck').hidden = breakNow;
+  $('stuck-hint').hidden = breakNow || !state.platformSupported;
   $('break-5').hidden = breakNow;
   $('end-break').hidden = !breakNow;
 
@@ -267,11 +272,24 @@ function paintClock() {
 function paintTasks() {
   const { tasks, lastSync, syncError, settings } = state;
   const line = $('sync-line');
-  line.classList.toggle('bad', !!syncError);
+  const hasTasks = settings.canvasConnected || settings.demoMode;
+  $('sync').hidden = !hasTasks;
+  if (!hasTasks) {
+    line.classList.remove('bad');
+    line.textContent = 'Optional. Your assignments can show up here.';
+    setHTML(
+      $('task-list'),
+      `<li class="empty connect">
+        <button class="secondary small" type="button" data-action="connect-canvas">Add your courses</button>
+        <button class="link" type="button" data-action="use-demo">Add sample assignments</button>
+      </li>`,
+    );
+    return;
+  }
   line.textContent = syncError
     ? syncError
     : settings.demoMode
-      ? 'Sample data. Connect bCourses in Settings for your real courses.'
+      ? 'Sample data. Add your courses in Settings to see your real assignments.'
       : lastSync
         ? `Synced ${ago(lastSync)}`
         : 'Syncing…';
@@ -353,6 +371,8 @@ function openSettings() {
   $('platform-note').textContent = state.platformSupported
     ? 'macOS asks once whether Concentr8 may control your browser. Allow it, or blocking can’t work. Firefox also needs Accessibility access in System Settings → Privacy & Security.'
     : 'Screen watching and blocking work on macOS only.';
+  $('canvas-open').hidden = s.canvasConnected;
+  $('canvas-disconnect').hidden = !s.canvasConnected && !s.demoMode;
   $('saved-note').textContent = '';
   $('drawer').hidden = false;
   $('scrim').hidden = false;
@@ -414,12 +434,45 @@ $('canvas-form').addEventListener(
 );
 $('use-demo').addEventListener('click', busy($('use-demo'), () => c8.useDemo()));
 
+function openConnect() {
+  connectingCanvas = true;
+  paint();
+  $('canvas-token').focus();
+}
+
+function closeConnect() {
+  connectingCanvas = false;
+  $('canvas-error').textContent = '';
+  paint();
+}
+
+$('canvas-back').addEventListener('click', closeConnect);
+
+/** No time, or "now": the task starts right away. A time: it's planned and starts by itself. */
+function startsNow() {
+  const time = $('intent-time').value.trim();
+  return !time || /^now$/i.test(time);
+}
+
+function updateIntentButton() {
+  $('intent-submit').textContent = startsNow() ? 'Start now' : 'Plan it';
+}
+
+$('intent-time').addEventListener('input', updateIntentButton);
+
 $('intent-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const task = $('intent-task').value.trim();
   if (!task) return;
   editingPlan = false;
-  await c8.setIntent(task, $('intent-time').value.trim());
+  if (startsNow()) {
+    await c8.setIntent(task, '');
+    await c8.startFocus(task);
+  } else {
+    await c8.setIntent(task, $('intent-time').value.trim());
+  }
+  $('intent-time').value = '';
+  updateIntentButton();
 });
 
 $('change-plan').addEventListener('click', () => {
@@ -464,6 +517,9 @@ $('stop-focus').addEventListener('click', () => c8.stopFocus());
 $('sync').addEventListener('click', busy($('sync'), () => c8.sync()));
 
 $('task-list').addEventListener('click', async (e) => {
+  const action = e.target.closest('button[data-action]');
+  if (action?.dataset.action === 'connect-canvas') return openConnect();
+  if (action?.dataset.action === 'use-demo') return c8.useDemo();
   const button = e.target.closest('button[data-start]');
   if (!button) return;
   const task = state.tasks.find((t) => t.id === button.dataset.start);
@@ -546,6 +602,10 @@ $('delete-account').addEventListener('click', async () => {
   $('signup-form').hidden = false;
   $('connected-block').hidden = true;
   $('own-server').hidden = false;
+});
+$('canvas-open').addEventListener('click', () => {
+  closeSettings();
+  openConnect();
 });
 $('canvas-disconnect').addEventListener('click', async () => {
   await c8.disconnectCanvas();

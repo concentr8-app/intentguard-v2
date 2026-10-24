@@ -1,6 +1,6 @@
 // Electron entry point: window, menu-bar item, notifications, IPC. Logic lives in controller.ts.
 
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, safeStorage, screen, shell, Tray } from 'electron';
+import { app, BrowserWindow, globalShortcut, ipcMain, Menu, nativeImage, Notification, safeStorage, screen, shell, Tray } from 'electron';
 import path from 'node:path';
 import type { AppState, Settings } from '../shared/types';
 import { createGroqSemanticProvider } from '../services/groq';
@@ -26,6 +26,24 @@ const webPreferences = () => ({
 
 function openExternal(url: string) {
   if (typeof url === 'string' && /^https?:\/\//.test(url)) void shell.openExternal(url);
+}
+
+/**
+ * "I'm stuck" from any app, only while a session runs (outside sessions the keys stay free).
+ * Not ⌥⌘S: that is "Save All" in VS Code, where CS students spend their sessions.
+ */
+const STUCK_SHORTCUT = process.platform === 'darwin' ? 'Control+Alt+Command+S' : 'Control+Alt+Shift+S';
+let shortcut: 'off' | 'on' | 'taken' = 'off';
+
+function syncShortcut(state: AppState) {
+  if (state.session && shortcut === 'off') {
+    const ok = globalShortcut.register(STUCK_SHORTCUT, () => controller?.imStuck('shortcut'));
+    shortcut = ok ? 'on' : 'taken'; // 'taken': another app owns it; don't retry every tick
+    if (!ok) console.warn(`[stuck] shortcut ${STUCK_SHORTCUT} is used by another app`);
+  } else if (!state.session && shortcut !== 'off') {
+    if (shortcut === 'on') globalShortcut.unregister(STUCK_SHORTCUT);
+    shortcut = 'off';
+  }
 }
 
 if (!app.isPackaged) loadLocalEnv();
@@ -146,7 +164,12 @@ function updateTray(state: AppState) {
       state.session
         ? { label: 'Stop focus', click: () => controller?.stopFocus() }
         : { label: 'Start focus', click: () => controller?.startFocus() },
-      { label: "I'm stuck", enabled: !!state.session && !state.stuck, click: () => controller?.imStuck() },
+      {
+        label: "I'm stuck",
+        accelerator: STUCK_SHORTCUT, // shown in the menu; the global shortcut itself is registered by syncShortcut
+        enabled: !!state.session && !state.stuck,
+        click: () => controller?.imStuck(),
+      },
       { label: 'Break 5 min', enabled: !!state.session, click: () => controller?.takeBreak(5) },
       { type: 'separator' },
       { label: 'Quit', click: () => app.quit() },
@@ -161,6 +184,7 @@ function truncate(s: string, n: number) {
 function emit(state: AppState) {
   updateTray(state);
   syncCalm(state);
+  syncShortcut(state);
   if (win && !win.isDestroyed()) win.webContents.send('c8:state', state);
 }
 
@@ -201,6 +225,7 @@ app.on('before-quit', () => {
   quitting = true;
   controller?.stopTimers();
 });
+app.on('will-quit', () => globalShortcut.unregisterAll());
 
 app.whenReady().then(() => {
   const store = new Store(app.getPath('userData'), {
