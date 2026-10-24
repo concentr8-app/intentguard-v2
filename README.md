@@ -59,13 +59,15 @@ The token is stored with Electron `safeStorage` and the macOS keychain.
 
 ### Optional semantic relevance
 
-The desktop app works normally without an AI key. To classify neutral activity through Groq, export the key before starting Electron:
+The desktop app works normally without an AI key. For local development, copy the ignored root environment file and fill in your own key:
 
 ```sh
-export GROQ_API_KEY="your-groq-key"
-export GROQ_MODEL="openai/gpt-oss-20b" # optional; this is the default
+cp .env.example .env
+# Edit .env and set GROQ_API_KEY. GROQ_MODEL is optional.
 npm start
 ```
+
+`.env` is local-only and must never be committed. Variables already supplied by the shell take precedence over values in the file. User-entered bCourses and call-server secrets continue to use Electron `safeStorage` rather than `.env`.
 
 The semantic layer sends only the current intent, foreground app, page title, and compact URL/search context. It keeps an in-memory cache for the current focus session. Logs distinguish deterministic decisions, semantic API calls, cache hits, and safe fallbacks without printing the key.
 

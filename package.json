@@ -12,6 +12,9 @@
     "test": "tsc && node --test dist/test/*.test.js"
   },
   "license": "MIT",
+  "dependencies": {
+    "dotenv": "^16.4.7"
+  },
   "build": {
     "appId": "app.concentr8.mac",
     "productName": "Concentr8",

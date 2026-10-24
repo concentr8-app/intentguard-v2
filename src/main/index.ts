@@ -7,12 +7,15 @@ import { createGroqSemanticProvider } from '../services/groq';
 import { createMacPlatform, createNullPlatform } from '../services/platform';
 import { CachedSemanticClassifier } from '../services/semantic';
 import { Controller } from './controller';
+import { loadLocalEnv } from './env';
 import { Store } from './store';
 
 let win: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let controller: Controller | null = null;
 let quitting = false;
+
+if (!app.isPackaged) loadLocalEnv();
 
 if (!app.requestSingleInstanceLock()) app.quit();
 

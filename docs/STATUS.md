@@ -4,7 +4,7 @@ This file records fast-changing implementation status. Keep durable product and 
 
 ## Current main
 
-- Code baseline for the provider-agnostic semantic relevance milestone: `2db33fd` (`origin/main` on 2026-10-24).
+- Code baseline for the local development secret-loading milestone: `668244a` (`origin/main` on 2026-10-24).
 - Use `git log -1 --oneline` to identify the implementation commit layered on this baseline.
 
 ## Proven working
@@ -22,6 +22,7 @@ Supported by current code and the verification recorded below. Observer and inte
 - Otherwise-neutral activity can optionally use Groq through a provider-independent interface.
 - Semantic results use a `0.85` confidence threshold; uncertainty, low confidence, missing configuration, and API failures remain neutral.
 - Semantic classifications are cached by intent plus activity for the current session, preventing repeated calls from unchanged three-second polls.
+- Unpackaged Electron development loads an ignored root `.env` without overriding existing shell variables.
 - Direct bCourses sync and calendar-feed fallback.
 - Visible warning, grace period, and redirect/restore behavior for configured distractions.
 - Intentional breaks pause interventions and can be ended to resume monitoring.
@@ -34,7 +35,7 @@ Real provider calls still depend on valid credentials, account state, phone veri
 Latest automated verification on Node.js `v26.7.0`:
 
 - `npm run typecheck`: passed.
-- `npm test`: passed, 27/27 tests.
+- `npm test`: passed, 28/28 tests.
 - `npm run build`: passed.
 
 ## Current known limitations
@@ -86,5 +87,5 @@ Plan and ship one bounded milestone at a time. Re-evaluate this sequence using d
 - The unsigned app may require right-click → **Open** on first launch.
 - The desktop README requires Node.js 20+. This documentation task was verified with Node.js `v26.7.0`; the server declares Node.js 18 or newer.
 - No dependency lockfile, `.nvmrc`, or `.node-version` is present as of the reviewed baseline. Install results can therefore vary across machines and Node versions.
-- Optional semantic classification reads `GROQ_API_KEY` and optional `GROQ_MODEL` from the environment that launches Electron; the default model is `openai/gpt-oss-20b`.
+- Local development can read `GROQ_API_KEY` and optional `GROQ_MODEL` from the ignored root `.env`; shell variables take precedence. The default model is `openai/gpt-oss-20b`.
 - Calling requires a reachable server plus provider-specific credentials and account verification. Sleeping deployments can miss scheduled calls.
