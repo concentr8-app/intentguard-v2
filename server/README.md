@@ -19,6 +19,9 @@ if not, run this folder on Replit instead (it follows the same API, see `../docs
    | `USER_PHONE_NUMBER` | the phone to call (on a Twilio trial it must be a verified number) |
    | `APP_API_KEY` | any long password; the Mac app needs the same one |
    | `ANTHROPIC_API_KEY` | optional: Claude makes the call sound less scripted |
+   | `CANVAS_TOKEN` | optional: bCourses access token, so the call reads your deadlines even when the Mac app is closed |
+   | `CANVAS_FEED_URL` | optional, instead of the token: the bCourses calendar feed link |
+   | `PUBLIC_URL` | recommended after publishing: your deployment URL, e.g. `https://concentr8.replit.app` |
 
 3. Run command: `cd server && npm start`.
 4. Deploy it as something that keeps running (the 8:00 call needs the process awake).

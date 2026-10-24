@@ -195,20 +195,104 @@ async function claudeUnderstand(speech) {
   return null;
 }
 
+// ---------- optional: read Canvas directly, so the call works even when the Mac is off ----------
+// Set CANVAS_TOKEN (bCourses access token) or CANVAS_FEED_URL (bCourses calendar feed link).
+
+function nextLink(header) {
+  for (const part of String(header || '').split(',')) {
+    const m = part.match(/<([^>]+)>;\s*rel="next"/);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+async function canvasFromApi() {
+  const base = (env.CANVAS_BASE_URL || 'https://bcourses.berkeley.edu').replace(/\/+$/, '');
+  const now = Date.now();
+  const start = encodeURIComponent(new Date(now - 86_400_000).toISOString());
+  const end = encodeURIComponent(new Date(now + 14 * 86_400_000).toISOString());
+  let url = `${base}/api/v1/planner/items?start_date=${start}&end_date=${end}&per_page=100`;
+  const items = [];
+  for (let page = 0; url && page < 5; page++) {
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${env.CANVAS_TOKEN}` }, signal: AbortSignal.timeout(8000) });
+    if (!res.ok) throw new Error(`Canvas answered ${res.status}`);
+    items.push(...(await res.json()));
+    url = nextLink(res.headers.get('link'));
+  }
+  const kinds = new Set(['assignment', 'quiz', 'discussion_topic', 'planner_note']);
+  return items
+    .filter((it) => kinds.has(it.plannable_type))
+    .filter((it) => !(it.submissions && (it.submissions.submitted || it.submissions.excused)))
+    .filter((it) => !(it.planner_override && it.planner_override.marked_complete))
+    .map((it) => ({
+      id: `${it.plannable_type}-${it.plannable_id}`,
+      title: (it.plannable && it.plannable.title) || 'Untitled',
+      course: it.context_name || 'Personal',
+      dueAt: (it.plannable && (it.plannable.due_at || it.plannable.todo_date)) || it.plannable_date || null,
+      url: it.html_url ? (it.html_url.startsWith('http') ? it.html_url : base + it.html_url) : null,
+    }));
+}
+
+async function canvasFromFeed() {
+  const res = await fetch(env.CANVAS_FEED_URL, { signal: AbortSignal.timeout(8000) });
+  if (!res.ok) throw new Error(`Calendar feed answered ${res.status}`);
+  const lines = (await res.text()).replace(/\r\n/g, '\n').replace(/\n[ \t]/g, '').split('\n');
+  const tasks = [];
+  let ev = null;
+  for (const line of lines) {
+    if (line === 'BEGIN:VEVENT') ev = {};
+    else if (line === 'END:VEVENT' && ev) {
+      if (/assignment/i.test(ev.UID || '')) {
+        const summary = (ev.SUMMARY || 'Untitled').replace(/\\([,;\\])/g, '$1');
+        const course = summary.match(/\s*\[([^\]]+)\]\s*$/);
+        const d = (ev.DTSTART || '').match(/(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2}))?/);
+        // UTC times end in Z; all-day dates become 23:59 Pacific (approximated as 06:59Z next day).
+        const dueAt = d ? new Date(Date.UTC(+d[1], +d[2] - 1, +d[3] + (d[4] ? 0 : 1), d[4] ? +d[4] : 6, d[4] ? +d[5] : 59)).toISOString() : null;
+        tasks.push({
+          id: ev.UID,
+          title: course ? summary.slice(0, course.index).trim() : summary,
+          course: course ? course[1] : 'bCourses',
+          dueAt,
+          url: ev.URL || null,
+        });
+      }
+      ev = null;
+    } else if (ev) {
+      const colon = line.indexOf(':');
+      if (colon > 0) ev[line.slice(0, colon).split(';')[0].toUpperCase()] = line.slice(colon + 1);
+    }
+  }
+  const now = Date.now();
+  return tasks.filter((t) => !t.dueAt || (Date.parse(t.dueAt) > now - 86_400_000 && Date.parse(t.dueAt) < now + 14 * 86_400_000));
+}
+
+async function refreshCanvas() {
+  if (!env.CANVAS_TOKEN && !env.CANVAS_FEED_URL) return;
+  try {
+    const tasks = env.CANVAS_TOKEN ? await canvasFromApi() : await canvasFromFeed();
+    data.tasks = tasks.slice(0, 100);
+    save();
+  } catch (err) {
+    console.error('Canvas refresh failed, using the last known tasks:', err.message);
+  }
+}
+
 // ---------- Twilio REST ----------
 
 function publicBase(req) {
   if (env.PUBLIC_URL) return env.PUBLIC_URL.replace(/\/+$/, '');
-  const replit = (env.REPLIT_DOMAINS || '').split(',')[0] || env.REPLIT_DEV_DOMAIN;
-  if (replit) return `https://${replit}`;
-  if (req) {
-    const proto = req.headers['x-forwarded-proto'] || 'http';
+  if (req && req.headers.host && !/^(localhost|127\.)/.test(req.headers.host)) {
+    const proto = req.headers['x-forwarded-proto'] || 'https';
     return `${proto}://${req.headers.host}`;
   }
+  if (data.publicBase) return data.publicBase; // last address we were reached at
+  const replit = (env.REPLIT_DOMAINS || '').split(',')[0] || env.REPLIT_DEV_DOMAIN;
+  if (replit) return `https://${replit}`;
   return `http://localhost:${PORT}`;
 }
 
 async function placeCall(req) {
+  await refreshCanvas();
   const sid = env.TWILIO_ACCOUNT_SID;
   const token = env.TWILIO_AUTH_TOKEN;
   const from = env.TWILIO_PHONE_NUMBER;
@@ -317,6 +401,15 @@ async function route(req, res) {
   const p = url.pathname.replace(/\/+$/, '') || '/';
   const m = req.method;
 
+  // Remember our public address so the 8:00 scheduler can give Twilio the right webhook URL.
+  if (req.headers.host && !/^(localhost|127\.)/.test(req.headers.host)) {
+    const seen = `${req.headers['x-forwarded-proto'] || 'https'}://${req.headers.host}`;
+    if (data.publicBase !== seen) {
+      data.publicBase = seen;
+      save();
+    }
+  }
+
   if (m === 'OPTIONS') return send(res, 204, '', 'text/plain');
   if (p === '/' && m === 'GET') return send(res, 200, 'Concentr8 call server is running. See /api/health.', 'text/plain');
   if (p === '/api/health' && m === 'GET') return send(res, 200, { ok: true });
@@ -339,6 +432,10 @@ async function route(req, res) {
       return send(res, 200, { ok: true, count: data.tasks.length });
     }
     if (p === '/api/today' && m === 'GET') return send(res, 200, todayResponse());
+    if (p === '/api/tasks' && m === 'GET') {
+      await refreshCanvas();
+      return send(res, 200, { tasks: data.tasks });
+    }
     if ((p === '/api/call-now' && m === 'POST') || (p === '/cron/morning' && m === 'GET')) {
       const callSid = await placeCall(req);
       // A cron hit at/after call time counts as today's morning call; a test hit at 2 a.m. doesn't.
