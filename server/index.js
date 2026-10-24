@@ -106,7 +106,15 @@ function spokenCourse(course) {
 const xml = (s) =>
   String(s).replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c]);
 
-const VOICE = env.TWILIO_VOICE || 'Polly.Joanna-Neural';
+/**
+ * Which phone carrier places the calls. Both speak (almost) the same XML:
+ *  - "twilio": TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER
+ *  - "telnyx": TELNYX_API_KEY, TELNYX_ACCOUNT_SID, TELNYX_APP_ID, TELNYX_PHONE_NUMBER
+ * Defaults to Telnyx when a Telnyx key is set.
+ */
+const PROVIDER = (env.CALL_PROVIDER || (env.TELNYX_API_KEY ? 'telnyx' : 'twilio')).toLowerCase();
+
+const VOICE = env.CALL_VOICE || env.TWILIO_VOICE || 'Polly.Joanna-Neural';
 
 function say(text) {
   return `<Say voice="${xml(VOICE)}">${xml(text)}</Say>`;
@@ -120,12 +128,14 @@ function gather(step, attempt, prompt) {
     .join(', ')
     .slice(0, 900);
   const action = `/twilio/gather?step=${step}&amp;try=${attempt}`;
+  // Twilio understands speechTimeout="auto"; Telnyx wants seconds.
+  const speechTimeout = PROVIDER === 'telnyx' ? '2' : 'auto';
   return (
-    `<Gather input="speech" action="${action}" method="POST" speechTimeout="auto" language="en-US"` +
+    `<Gather input="speech" action="${action}" timeout="6" speechTimeout="${speechTimeout}" language="en-US"` +
     (hints ? ` hints="${xml(hints)}"` : '') +
     `>${say(prompt)}</Gather>` +
     // Reached only if the student said nothing:
-    `<Redirect method="POST">/twilio/gather?step=${step}&amp;try=${attempt}&amp;empty=1</Redirect>`
+    `<Redirect>/twilio/gather?step=${step}&amp;try=${attempt}&amp;empty=1</Redirect>`
   );
 }
 
@@ -293,14 +303,52 @@ function publicBase(req) {
 
 async function placeCall(req) {
   await refreshCanvas();
+  const to = data.settings.phoneNumber || env.USER_PHONE_NUMBER;
+  if (!to) throw httpError(400, 'No phone number to call (set USER_PHONE_NUMBER or POST /api/settings)');
+  const base = publicBase(req);
+  const callId = PROVIDER === 'telnyx' ? await placeTelnyxCall(to, base) : await placeTwilioCall(to, base);
+  data.lastCallAt = new Date().toISOString();
+  data.lastCallStatus = 'queued';
+  save();
+  return callId;
+}
+
+/** Telnyx TeXML: https://developers.telnyx.com/api-reference/texml-rest-commands/initiate-an-outbound-call */
+async function placeTelnyxCall(to, base) {
+  const { TELNYX_API_KEY: key, TELNYX_ACCOUNT_SID: account, TELNYX_APP_ID: app, TELNYX_PHONE_NUMBER: from } = env;
+  if (!key || !account || !app || !from) {
+    throw httpError(500, 'Telnyx is not configured (TELNYX_API_KEY, TELNYX_ACCOUNT_SID, TELNYX_APP_ID, TELNYX_PHONE_NUMBER)');
+  }
+  const res = await fetch(`https://api.telnyx.com/v2/texml/Accounts/${encodeURIComponent(account)}/Calls`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      To: to,
+      From: from,
+      ApplicationSid: app,
+      Url: `${base}/twilio/voice`,
+      UrlMethod: 'POST',
+      StatusCallback: `${base}/twilio/status`,
+      StatusCallbackMethod: 'POST',
+      StatusCallbackEvent: 'initiated ringing answered completed',
+    }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const e = (body.errors && body.errors[0]) || {};
+    const detail = [e.title, e.detail].filter(Boolean).join(': ') || body.message || res.status;
+    throw httpError(502, `Telnyx: ${detail}${e.code ? ` (error ${e.code})` : ''}`);
+  }
+  return body.sid || body.call_sid || body.CallSid || 'telnyx-call';
+}
+
+async function placeTwilioCall(to, base) {
   const sid = env.TWILIO_ACCOUNT_SID;
   const token = env.TWILIO_AUTH_TOKEN;
   const from = env.TWILIO_PHONE_NUMBER;
-  const to = data.settings.phoneNumber || env.USER_PHONE_NUMBER;
   if (!sid || !token || !from) throw httpError(500, 'Twilio is not configured (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER)');
-  if (!to) throw httpError(400, 'No phone number to call (set USER_PHONE_NUMBER or POST /api/settings)');
 
-  const base = publicBase(req);
   const form = new URLSearchParams({
     To: to,
     From: from,
@@ -325,11 +373,30 @@ async function placeCall(req) {
     const code = body.code ? ` (error ${body.code}${body.more_info ? `, see ${body.more_info}` : ''})` : '';
     throw httpError(502, `Twilio: ${body.message || res.status}${code}`);
   }
-  data.lastCallAt = new Date().toISOString();
-  data.lastCallStatus = 'queued';
-  save();
   return body.sid;
 }
+
+/** Webhook bodies: Twilio sends form fields; accept JSON too, in case a carrier does. */
+function webhookParams(raw, contentType) {
+  if (/json/i.test(contentType || '')) {
+    try {
+      const obj = JSON.parse(raw || '{}');
+      const flat = obj.data && obj.data.payload ? { ...obj.data.payload, ...obj } : obj;
+      return new URLSearchParams(Object.entries(flat).filter(([, v]) => typeof v !== 'object').map(([k, v]) => [k, String(v)]));
+    } catch {
+      return new URLSearchParams();
+    }
+  }
+  return new URLSearchParams(raw);
+}
+
+const firstParam = (params, names) => {
+  for (const n of names) {
+    const v = params.get(n);
+    if (v) return v;
+  }
+  return '';
+};
 
 /** Optional check that webhooks really come from Twilio (set VALIDATE_TWILIO_SIGNATURE=true). */
 function validTwilioSignature(req, params) {
@@ -466,17 +533,18 @@ async function route(req, res) {
 
   // --- Twilio webhooks ---
   if (p.startsWith('/twilio/') && m === 'POST') {
-    const params = new URLSearchParams(await readBody(req));
-    if (!validTwilioSignature(req, params)) return send(res, 403, 'Bad signature', 'text/plain');
+    const params = webhookParams(await readBody(req), req.headers['content-type']);
+    if (PROVIDER === 'twilio' && !validTwilioSignature(req, params)) return send(res, 403, 'Bad signature', 'text/plain');
 
     if (p === '/twilio/status') {
-      data.lastCallStatus = params.get('CallStatus') || data.lastCallStatus;
+      data.lastCallStatus = firstParam(params, ['CallStatus', 'call_status', 'status']) || data.lastCallStatus;
       save();
       return send(res, 204, '', 'text/plain');
     }
 
     if (p === '/twilio/voice') {
       data.lastCallStatus = 'in-progress';
+      if (firstParam(params, ['Direction', 'direction']).startsWith('inbound')) data.lastCallAt = new Date().toISOString();
       save();
       return send(res, 200, twiml(gather('task', 0, openingLine())), 'text/xml');
     }
@@ -484,7 +552,12 @@ async function route(req, res) {
     if (p === '/twilio/gather') {
       const step = url.searchParams.get('step');
       const attempt = Number(url.searchParams.get('try') || 0);
-      const speech = url.searchParams.get('empty') ? '' : (params.get('SpeechResult') || '').trim();
+      const speech = url.searchParams.get('empty')
+        ? ''
+        : firstParam(params, ['SpeechResult', 'speech_result', 'Speech', 'speech', 'Transcript', 'transcript']).trim();
+      if (!speech && !url.searchParams.get('empty')) {
+        console.log('gather callback without speech, fields:', [...params.keys()].join(', ') || '(none)');
+      }
       const t = today();
 
       if (step === 'task') {
@@ -509,7 +582,7 @@ async function route(req, res) {
         return send(
           res,
           200,
-          twiml(say(`Locked in: ${t.focusTask || 'your task'}, at ${t.startTime}. I'll keep distractions away. Go get it!`) + '<Hangup/>'),
+          twiml(say(`Locked in: ${t.focusTask || 'your task'}, at ${t.startTime.replace(/\.$/, '')}. I'll keep distractions away. Go get it!`) + '<Hangup/>'),
           'text/xml',
         );
       }
@@ -552,7 +625,7 @@ function schedulerTick() {
 
 if (require.main === module) {
   server.listen(PORT, () => {
-    console.log(`Concentr8 call server on :${PORT} (public: ${publicBase(null)})`);
+    console.log(`Concentr8 call server on :${PORT} (public: ${publicBase(null)}, calls via ${PROVIDER})`);
     if (!env.APP_API_KEY) console.warn('APP_API_KEY is not set: the app API will refuse every request.');
   });
   setInterval(schedulerTick, 30_000);

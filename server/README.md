@@ -9,14 +9,30 @@ if not, run this folder on Replit instead (it follows the same API, see `../docs
 ## Run it on Replit
 
 1. Import the GitHub repo into Replit, or copy this `server/` folder into a Node Repl.
-2. Add these Secrets:
+2. Add these Secrets. Pick **one** phone carrier:
+
+   **Telnyx** (used when `TELNYX_API_KEY` is set). New accounts can call their verified number right away.
+
+   | Name | Value |
+   |---|---|
+   | `TELNYX_API_KEY` | Telnyx portal → API keys |
+   | `TELNYX_ACCOUNT_SID` | your Telnyx account ID (UUID) |
+   | `TELNYX_APP_ID` | ID of your TeXML Application (its Voice URL: `https://<your-url>/twilio/voice`, POST) |
+   | `TELNYX_PHONE_NUMBER` | your Telnyx number, like `+15105550123` |
+
+   **Twilio.** Since late 2025, calls to +1 numbers need an approved *Business* customer profile (error 21216 otherwise).
 
    | Name | Value |
    |---|---|
    | `TWILIO_ACCOUNT_SID` | starts with `AC`, from the Twilio console |
    | `TWILIO_AUTH_TOKEN` | from the Twilio console |
-   | `TWILIO_PHONE_NUMBER` | your Twilio number, like `+15105550123` |
-   | `USER_PHONE_NUMBER` | the phone to call (on a Twilio trial it must be a verified number) |
+   | `TWILIO_PHONE_NUMBER` | your Twilio number |
+
+   Both:
+
+   | Name | Value |
+   |---|---|
+   | `USER_PHONE_NUMBER` | the phone to call (on trial accounts it must be your verified number) |
    | `APP_API_KEY` | any long password; the Mac app needs the same one |
    | `ANTHROPIC_API_KEY` | optional: Claude makes the call sound less scripted |
    | `CANVAS_TOKEN` | optional: bCourses access token, so the call reads your deadlines even when the Mac app is closed |
