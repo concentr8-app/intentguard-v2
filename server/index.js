@@ -482,7 +482,7 @@ async function route(req, res) {
 
   if (m === 'OPTIONS') return send(res, 204, '', 'text/plain');
   if (p === '/' && m === 'GET') return send(res, 200, 'Concentr8 call server is running. See /api/health.', 'text/plain');
-  if (p === '/api/health' && m === 'GET') return send(res, 200, { ok: true });
+  if (p === '/api/health' && m === 'GET') return send(res, 200, { ok: true, provider: PROVIDER, telnyxKey: !!env.TELNYX_API_KEY, telnyxAccount: !!env.TELNYX_ACCOUNT_SID, telnyxApp: !!env.TELNYX_APP_ID, telnyxNumber: !!env.TELNYX_PHONE_NUMBER, phone: !!(data.settings.phoneNumber || env.USER_PHONE_NUMBER), publicBase: publicBase(req) });
 
   // --- app API (Bearer APP_API_KEY) ---
   if (p.startsWith('/api/') || p.startsWith('/cron/')) {
