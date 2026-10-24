@@ -40,7 +40,8 @@
           ]
         }
       ],
-      "identity": null
+      "identity": null,
+      "icon": "build/icon.png"
     },
     "artifactName": "Concentr8-${arch}.${ext}"
   },
