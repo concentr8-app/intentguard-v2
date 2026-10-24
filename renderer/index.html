@@ -13,7 +13,7 @@
     <button class="ghost" id="open-settings" type="button">Settings</button>
   </header>
 
-  <!-- Onboarding: bCourses is required before anything else -->
+  <!-- Connect bCourses: optional, opened from the task list or Settings -->
   <main id="onboarding" class="onboarding" hidden>
     <div class="onboard-inner">
       <h1>Let's see what's due.</h1>
@@ -42,6 +42,7 @@
         <div class="row">
           <button class="primary" type="submit" id="canvas-connect">Connect bCourses</button>
           <button class="link" type="button" id="use-demo">Try with sample assignments</button>
+          <button class="link quiet" type="button" id="canvas-back">Not now</button>
         </div>
       </form>
     </div>
@@ -55,8 +56,8 @@
         <h1 class="ask">What's the one thing you'll start today?</h1>
         <form id="intent-form" class="intent-form">
           <input id="intent-task" class="big-input" type="text" placeholder="e.g. CS 188 Project 2" autocomplete="off" required>
-          <input id="intent-time" class="time-input" type="text" placeholder="when? 9:30" autocomplete="off">
-          <button class="primary" type="submit">Commit</button>
+          <input id="intent-time" class="time-input" type="text" placeholder="later? 9:30" autocomplete="off" aria-label="Start later at (optional)">
+          <button class="primary" type="submit" id="intent-submit">Start now</button>
         </form>
         <p class="hint" id="call-hint"></p>
       </div>
@@ -86,6 +87,7 @@
           <button class="secondary" id="end-break" type="button" hidden>I'm back</button>
           <button class="link" id="stop-focus" type="button">End session</button>
         </div>
+        <p class="hint" id="stuck-hint" hidden>Stuck in another app? Press ⌃⌥⌘S.</p>
         <ol class="log" id="drift-log" aria-label="What happened this session"></ol>
       </div>
 
@@ -135,6 +137,7 @@
     <section class="group">
       <h3>bCourses</h3>
       <p class="muted" id="canvas-status"></p>
+      <button class="secondary small" id="canvas-open" type="button">Connect bCourses</button>
       <button class="secondary small" id="canvas-disconnect" type="button">Disconnect</button>
     </section>
 

@@ -237,6 +237,8 @@ button:disabled { opacity: 0.5; cursor: default; }
 .task-meta { font-size: 12px; color: var(--moss); margin-top: 2px; }
 .task-meta .soon { color: var(--brick); font-weight: 600; }
 .task-list .empty { display: block; color: var(--moss); border: 0; }
+.task-list .empty.connect { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s3); padding-top: var(--s2); }
+.link.quiet { color: var(--moss); font-weight: 500; }
 
 .history-head { margin-top: var(--s6); margin-bottom: var(--s2); }
 .history li { font-size: 12px; color: var(--moss); padding: 5px 0; }

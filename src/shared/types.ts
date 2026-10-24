@@ -107,7 +107,7 @@ export interface FirstStep {
 
 export interface StuckEpisode {
   startedAt: string;
-  trigger: 'button' | 'drift';
+  trigger: 'button' | 'shortcut' | 'drift';
   phase: StuckPhase;
   phaseEndsAt: string | null; // end of the calm screen or of the step timer
   step: FirstStep | null;

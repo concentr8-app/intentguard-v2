@@ -33,7 +33,7 @@ Supported by current code and the verification recorded below. Observer and inte
 
 Real provider calls still depend on valid credentials, account state, phone verification, and a reachable deployment. Their presence in main is not a claim that every provider account is currently ready.
 
-### "I'm stuck" recovery flow (branch `stuck-flow`, automated tests only so far)
+### "I'm stuck" recovery flow (on main; automated tests only so far)
 
 - `STUCK` is now a real state in the desktop app: calm → (optional) call → step → check-in, held in `Controller` and shown in `AppState.stuck`.
 - **Calm:** a full-screen breathing screen (`renderer/calm.html`) for up to 60 s; Esc or "I'm ready" ends it early. Warnings and blocking pause during calm and call.
@@ -42,6 +42,13 @@ Real provider calls still depend on valid credentials, account state, phone veri
 - **Offer, never force:** 3 separate drifts within 10 minutes trigger a notification offering "I'm stuck"; it does not start on its own.
 - **Phone call:** offered only when the call server announces `stuck-call` (proposal in `docs/call-server-api.md`); a 4-minute timeout falls back to the prepared step.
 - Stuck moments are counted in session summaries (`stuck`, `gotGoing`).
+- Global shortcut **⌃⌥⌘S** starts it from any app, registered only while a session runs (not ⌥⌘S: that is "Save All" in VS Code). If another app owns the chord, the button and menu item still work.
+
+### Simpler start (branch `simpler-start`)
+
+- No bCourses gate: the app opens on "What's the one thing you'll start today?". Connecting bCourses or loading sample assignments is offered in the task list and in Settings.
+- Typing a task and pressing Enter starts the session at once ("Start now"); typing a time first plans it instead ("Plan it"), and it starts by itself at that time.
+- Verified by rendering the window with a stubbed `window.c8` in Chromium; not yet on a real Mac.
 - Verified: 15 new tests in `src/test/stuck.test.ts` (flow, pause, fallbacks, call, timeout, old server). Not yet verified: `npm run typecheck`/`build` with real Electron types, the calm window on a real Mac (multi-display, full-screen apps), and a live Claude call.
 
 Latest automated verification on Node.js `v26.7.0`:

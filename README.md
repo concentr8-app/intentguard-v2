@@ -16,7 +16,7 @@ Built at Cal Hacks 13.0.
 - Optionally classify otherwise-neutral activity with a cached, provider-agnostic semantic check.
 - Warn after clear drift, allow a grace period, then redirect or close the distraction and restore the last relevant page.
 - Pause interventions during an intentional break.
-- **I'm stuck:** a calm full-screen minute, then one tiny first step with a short timer and a check-in ("Did you get going?"). The step comes from Claude when `ANTHROPIC_API_KEY` is set, otherwise from fixed steps that get smaller each time.
+- **I'm stuck:** a calm full-screen minute, then one tiny first step with a short timer and a check-in ("Did you get going?"). The step comes from Claude when `ANTHROPIC_API_KEY` is set, otherwise from fixed steps that get smaller each time. During a session **⌃⌥⌘S** starts it from any app.
 - Show an in-session intervention log and store ended-session summaries locally.
 - Connect to the current call server for scheduled or on-demand check-ins.
 
@@ -50,11 +50,11 @@ The first time Concentr8 observes or controls another app, macOS may list it as 
 
 ### Start without bCourses
 
-Type any task, such as “Build the Concentr8 demo,” commit it, and start focus. This is a normal session even if it matches no assignment.
+The app opens on one question: what will you start? Type any task, such as “Build the Concentr8 demo,” and press Enter: the session starts right away. Type a time (“9:30”) first to plan it instead; it then starts by itself. This is a normal session even if it matches no assignment.
 
 ### Connect bCourses (optional)
 
-In bCourses, go to **Account → Settings → New access token**, name it Concentr8, and paste the token into the app. If token creation is unavailable, open **Calendar → Calendar Feed** and paste that link instead. **Try with sample assignments** works without an account.
+Choose **Connect bCourses** in the task list (or Settings → bCourses). In bCourses, go to **Account → Settings → New access token**, name it Concentr8, and paste the token into the app. If token creation is unavailable, open **Calendar → Calendar Feed** and paste that link instead. **Try with sample assignments** works without an account.
 
 The token is stored with Electron `safeStorage` and the macOS keychain.
 
@@ -87,11 +87,11 @@ Open `<server-url>/api/health` to see the active carrier and whether required co
 
 ## Demo in two minutes
 
-1. Open the app and either enter an arbitrary task or choose **Try with sample assignments**.
-2. Commit the task and click **Start focus**. A connected call server is optional.
+1. Open the app. Optionally choose **Try sample assignments** in the task list.
+2. Type the task and press Enter: the session starts. A connected call server is optional.
 3. Keep Concentr8 and Chrome visible side by side: the app shows the foreground app, page title, and full URL.
 4. Open `youtube.com`: Concentr8 warns, waits for the configured grace period, then redirects to the last relevant work page or closes the tab.
-5. Press **I'm stuck**: the calm screen covers the display (YouTube is left alone meanwhile). Press Esc, read the first step, and let the assignment open. After the timer, answer the check-in.
+5. Press **I'm stuck** (or ⌃⌥⌘S from Chrome): the calm screen covers the display (YouTube is left alone meanwhile). Press Esc, read the first step, and let the assignment open. After the timer, answer the check-in.
 6. Start a five-minute break to confirm interventions pause, then end the break.
 7. End the session to see its local summary, including stuck moments.
 
