@@ -422,7 +422,7 @@ async function placeCartesiaCall(u, to) {
   }
   const res = await fetch('https://api.cartesia.ai/agents/calls', {
     method: 'POST',
-    headers: { 'X-API-Key': key, 'Cartesia-Version': env.CARTESIA_VERSION || '2026-08-14', 'Content-Type': 'application/json' },
+    headers: { Authorization: `Bearer ${key}`, 'Cartesia-Version': env.CARTESIA_VERSION || '2026-08-14', 'Content-Type': 'application/json' },
     body: JSON.stringify({
       from_number_id: from,
       agent_id: agent,
@@ -736,7 +736,7 @@ async function route(req, res) {
       if (u.id !== 'owner') return send(res, 403, { ok: false, error: 'Owner key required' });
       if (!env.CARTESIA_API_KEY) throw httpError(500, 'CARTESIA_API_KEY is not set');
       const r = await fetch('https://api.cartesia.ai/agents/phone-numbers', {
-        headers: { 'X-API-Key': env.CARTESIA_API_KEY, 'Cartesia-Version': env.CARTESIA_VERSION || '2026-08-14' },
+        headers: { Authorization: `Bearer ${env.CARTESIA_API_KEY}`, 'Cartesia-Version': env.CARTESIA_VERSION || '2026-08-14' },
         signal: AbortSignal.timeout(10_000),
       });
       return send(res, 200, { status: r.status, body: await r.json().catch(() => null) });

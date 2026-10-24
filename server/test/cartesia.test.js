@@ -64,7 +64,7 @@ test('the call starts the agent with the student id and their opening line', asy
   assert.equal((await r.json()).callSid, 'call_1');
   const c = cartesiaCalls[0];
   assert.equal(c.url, 'https://api.cartesia.ai/agents/calls');
-  assert.equal(c.headers['X-API-Key'], 'sk_car_test');
+  assert.equal(c.headers.Authorization, 'Bearer sk_car_test');
   assert.ok(c.headers['Cartesia-Version']);
   assert.equal(c.body.from_number_id, 'ap_456');
   assert.equal(c.body.agent_id, 'agent_123');
