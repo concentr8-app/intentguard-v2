@@ -321,7 +321,10 @@ async function placeCall(req) {
     signal: AbortSignal.timeout(10_000),
   });
   const body = await res.json().catch(() => ({}));
-  if (!res.ok) throw httpError(502, `Twilio: ${body.message || res.status}`);
+  if (!res.ok) {
+    const code = body.code ? ` (error ${body.code}${body.more_info ? `, see ${body.more_info}` : ''})` : '';
+    throw httpError(502, `Twilio: ${body.message || res.status}${code}`);
+  }
   data.lastCallAt = new Date().toISOString();
   data.lastCallStatus = 'queued';
   save();
