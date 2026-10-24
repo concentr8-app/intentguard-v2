@@ -249,6 +249,14 @@ function paintHistory() {
 
 // ---------- settings drawer ----------
 
+function hostOf(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
 function openSettings() {
   const s = state.settings;
   $('canvas-status').textContent = s.demoMode
