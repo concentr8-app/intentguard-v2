@@ -1,19 +1,32 @@
 // Electron entry point: window, menu-bar item, notifications, IPC. Logic lives in controller.ts.
 
-import { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, safeStorage, shell, Tray } from 'electron';
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, safeStorage, screen, shell, Tray } from 'electron';
 import path from 'node:path';
 import type { AppState, Settings } from '../shared/types';
 import { createGroqSemanticProvider } from '../services/groq';
 import { createMacPlatform, createNullPlatform } from '../services/platform';
 import { CachedSemanticClassifier } from '../services/semantic';
+import { createStepProvider } from '../services/stuck';
 import { Controller } from './controller';
 import { loadLocalEnv } from './env';
 import { Store } from './store';
 
 let win: BrowserWindow | null = null;
+let calmWin: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let controller: Controller | null = null;
 let quitting = false;
+
+const webPreferences = () => ({
+  preload: path.join(__dirname, 'preload.js'),
+  contextIsolation: true,
+  nodeIntegration: false,
+  sandbox: true,
+});
+
+function openExternal(url: string) {
+  if (typeof url === 'string' && /^https?:\/\//.test(url)) void shell.openExternal(url);
+}
 
 if (!app.isPackaged) loadLocalEnv();
 
@@ -37,12 +50,7 @@ function createWindow() {
     title: 'Concentr8',
     titleBarStyle: 'hiddenInset',
     backgroundColor: '#f4f8f2',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
+    webPreferences: webPreferences(),
   });
   win.loadFile(path.join(__dirname, '..', '..', 'renderer', 'index.html'));
 
@@ -60,6 +68,54 @@ function createWindow() {
       win?.hide();
     }
   });
+}
+
+/** "I'm stuck": a full-screen calm screen on the display the student is using. */
+function openCalm() {
+  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const calm = new BrowserWindow({
+    ...display.bounds,
+    frame: false,
+    show: false,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    hasShadow: false,
+    enableLargerThanScreen: true,
+    backgroundColor: '#13211b',
+    title: 'Breathe',
+    webPreferences: webPreferences(),
+  });
+  calmWin = calm;
+  calm.setAlwaysOnTop(true, 'screen-saver'); // above other windows, the Dock and the menu bar
+  calm.loadFile(path.join(__dirname, '..', '..', 'renderer', 'calm.html'));
+  calm.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+  calm.webContents.on('will-navigate', (event) => event.preventDefault());
+  calm.once('ready-to-show', () => {
+    if (calm.isDestroyed()) return;
+    if (process.platform === 'darwin') calm.setSimpleFullScreen(true); // covers the screen without a new Space
+    calm.show();
+    calm.focus();
+    app.focus({ steal: true });
+  });
+  // Closed any other way (Cmd+W, crash): treat it like "I'm ready". No-op once the controller moved on.
+  calm.on('closed', () => {
+    if (calmWin === calm) calmWin = null;
+    if (!quitting) controller?.calmDone();
+  });
+}
+
+function syncCalm(state: AppState) {
+  const wanted = state.stuck?.phase === 'calm';
+  if (wanted && !calmWin) openCalm();
+  if (!wanted && calmWin) {
+    const calm = calmWin;
+    calmWin = null;
+    if (!calm.isDestroyed()) calm.destroy();
+  }
 }
 
 function notify(title: string, body: string) {
@@ -89,6 +145,7 @@ function updateTray(state: AppState) {
       state.session
         ? { label: 'Stop focus', click: () => controller?.stopFocus() }
         : { label: 'Start focus', click: () => controller?.startFocus() },
+      { label: "I'm stuck", enabled: !!state.session && !state.stuck, click: () => controller?.imStuck() },
       { label: 'Break 5 min', enabled: !!state.session, click: () => controller?.takeBreak(5) },
       { type: 'separator' },
       { label: 'Quit', click: () => app.quit() },
@@ -102,6 +159,7 @@ function truncate(s: string, n: number) {
 
 function emit(state: AppState) {
   updateTray(state);
+  syncCalm(state);
   if (win && !win.isDestroyed()) win.webContents.send('c8:state', state);
 }
 
@@ -125,9 +183,15 @@ function registerIpc(c: Controller) {
   h('takeBreak', (minutes: number) => c.takeBreak(minutes));
   h('endBreak', () => c.endBreak());
   h('saveSettings', (patch: Partial<Settings>) => c.saveSettings(patch));
-  h('openExternal', (url: string) => {
-    if (typeof url === 'string' && /^https?:\/\//.test(url)) void shell.openExternal(url);
+  h('openExternal', (url: string) => openExternal(url));
+  h('imStuck', () => c.imStuck('button'));
+  h('calmDone', () => c.calmDone());
+  h('stuckAnswer', (answer: unknown) => {
+    if (answer === 'started' || answer === 'smaller' || answer === 'break') c.stuckAnswer(answer);
   });
+  h('stuckCall', () => c.stuckCall());
+  h('skipCall', () => c.skipCall());
+  h('cancelStuck', () => c.cancelStuck());
 }
 
 app.on('second-instance', showWindow);
@@ -146,7 +210,20 @@ app.whenReady().then(() => {
   const platform = process.platform === 'darwin' ? createMacPlatform() : createNullPlatform();
   const relevanceLog = (message: string) => console.info(message);
   const semantic = new CachedSemanticClassifier(createGroqSemanticProvider(), relevanceLog);
-  controller = new Controller({ store, platform, notify, emit, showWindow, semantic, relevanceLog });
+  const stepProvider = createStepProvider();
+  console.info(stepProvider ? `[stuck] step provider=${stepProvider.name} model=${stepProvider.model}` : '[stuck] fixed steps only');
+  controller = new Controller({
+    store,
+    platform,
+    notify,
+    emit,
+    showWindow,
+    semantic,
+    relevanceLog,
+    stepProvider,
+    openUrl: openExternal,
+    log: (message) => console.info(message),
+  });
   registerIpc(controller);
 
   tray = new Tray(nativeImage.createEmpty());

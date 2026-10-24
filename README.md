@@ -16,6 +16,7 @@ Built at Cal Hacks 13.0.
 - Optionally classify otherwise-neutral activity with a cached, provider-agnostic semantic check.
 - Warn after clear drift, allow a grace period, then redirect or close the distraction and restore the last relevant page.
 - Pause interventions during an intentional break.
+- **I'm stuck:** a calm full-screen minute, then one tiny first step with a short timer and a check-in ("Did you get going?"). The step comes from Claude when `ANTHROPIC_API_KEY` is set, otherwise from fixed steps that get smaller each time.
 - Show an in-session intervention log and store ended-session summaries locally.
 - Connect to the current call server for scheduled or on-demand check-ins.
 
@@ -63,7 +64,8 @@ The desktop app works normally without an AI key. For local development, copy th
 
 ```sh
 cp .env.example .env
-# Edit .env and set GROQ_API_KEY. GROQ_MODEL is optional.
+# Edit .env and set GROQ_API_KEY (GROQ_MODEL is optional)
+# and ANTHROPIC_API_KEY for Claude's first steps in "I'm stuck".
 npm start
 ```
 
@@ -89,8 +91,9 @@ Open `<server-url>/api/health` to see the active carrier and whether required co
 2. Commit the task and click **Start focus**. A connected call server is optional.
 3. Keep Concentr8 and Chrome visible side by side: the app shows the foreground app, page title, and full URL.
 4. Open `youtube.com`: Concentr8 warns, waits for the configured grace period, then redirects to the last relevant work page or closes the tab.
-5. Start a five-minute break to confirm interventions pause, then end the break.
-6. End the session to see its local summary.
+5. Press **I'm stuck**: the calm screen covers the display (YouTube is left alone meanwhile). Press Esc, read the first step, and let the assignment open. After the timer, answer the check-in.
+6. Start a five-minute break to confirm interventions pause, then end the break.
+7. End the session to see its local summary, including stuck moments.
 
 ## What blocks what
 
@@ -121,6 +124,8 @@ Rules, grace time, and session length are editable in Settings. The allowed list
 | `src/main/controller.ts` | Intent, bCourses sync, call-server polling, session orchestration |
 | `src/main/store.ts` | Local JSON settings/history and encrypted secrets |
 | `src/services/focus.ts` | Warning → grace → redirect/restore loop and breaks |
+| `src/services/stuck.ts` | First step for "I'm stuck": optional Claude, fixed fallback steps |
+| `renderer/calm.html` | Full-screen calm screen shown at the start of "I'm stuck" |
 | `src/services/rules.ts` | Deterministic activity classification |
 | `src/services/semantic.ts` | Provider-independent semantic cache, threshold, and verdict mapping |
 | `src/services/groq.ts` | Optional Groq implementation configured from the desktop environment |

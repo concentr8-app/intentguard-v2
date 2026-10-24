@@ -25,6 +25,22 @@ Saying "stop" on the phone sets `paused`: no automatic calls until the student a
 
 `dueAt`, `lastCallAt`: ISO timestamps or `null`. `startTime` is what the student said, the Mac app parses it.
 
+## Proposed: the stuck call (Mac app side is ready, server not yet)
+
+When a student presses **I'm stuck**, the Mac app shows a calm screen and then one tiny first step. If the server
+can also *call* the student in that moment, the app offers **Talk it through on the phone**. The app only offers it
+when `/api/health` announces it, so older servers keep working unchanged.
+
+| Change | Detail |
+|---|---|
+| `GET /api/health` | add `"features": ["stuck-call"]` once the server supports it |
+| `POST /api/call-now` | accept `{ "reason": "stuck", "task": "CS 188 Project 2" }`. With `reason: "stuck"` the agent does not run the morning script: it helps the student calm down and agree on **one tiny first step** for the next 5 minutes. Pass `reason` and `task` to the Cartesia agent as dynamic variables |
+| `POST /cartesia/save-plan` | also accept `"first_step": "Open the spec and read only Question 1"` and store it with the time it was saved |
+| `GET /api/today` | add `"firstStep"` and `"firstStepAt"` (ISO). The app polls this every 5 s during the call and uses a step only if `firstStepAt` is after the call started |
+
+If no step arrives within 4 minutes, or the call fails, the app falls back to the step it already prepared.
+Desktop side: `src/main/controller.ts` (`stuckCall`, `stepFromCall`) and `src/services/callServer.ts`.
+
 ## Cartesia agent tool
 
 | Path | When |

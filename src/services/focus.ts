@@ -16,6 +16,8 @@ export interface FocusDeps {
   semantic?: CachedSemanticClassifier;
   relevanceLog?: RelevanceLog;
   now?: () => number;
+  /** True while something else (the "I'm stuck" calm screen or call) owns the moment: no nudges, no blocks. */
+  paused?: () => boolean;
 }
 
 /** After a block, the same distraction is blocked again without a second warning for this long. */
@@ -150,7 +152,8 @@ export class FocusEngine {
       return null;
     }
 
-    if (onBreak) {
+    if (onBreak || this.deps.paused?.()) {
+      this.drift = null;
       this.deps.onChange();
       return null;
     }
