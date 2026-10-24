@@ -150,6 +150,7 @@ button:disabled { opacity: 0.5; cursor: default; }
 .today[data-state="focus"] { background: #e9f3e4; }
 .today[data-state="drift"] { background: var(--amber-bg); }
 .today[data-state="break"] { background: #eef1ec; }
+.today[data-state="stuck"] { background: #e6eee8; }
 
 .ask { font-size: 30px; line-height: 1.15; letter-spacing: -0.015em; font-weight: 700; max-width: 18ch; margin-bottom: var(--s5); }
 
@@ -201,6 +202,22 @@ button:disabled { opacity: 0.5; cursor: default; }
 .log time { color: var(--moss); font-variant-numeric: tabular-nums; }
 .log .blocked { color: var(--brick); }
 .log .returned { color: var(--leaf-dark); }
+
+/* I'm stuck: the step speaks in the app's voice, without the quote marks reserved for the student's words */
+.step-text {
+  font-family: var(--voice); font-style: italic; font-weight: 400;
+  font-size: 34px; line-height: 1.18; letter-spacing: -0.01em;
+  max-width: 24ch; color: var(--ink); margin-bottom: var(--s5);
+}
+.step-text.waiting { color: var(--moss); }
+.stuck-when {
+  font-size: 15px; color: var(--leaf-dark); font-weight: 600; font-variant-numeric: tabular-nums;
+  margin: calc(-1 * var(--s3)) 0 var(--s5);
+}
+.stuck-when:empty { display: none; }
+.stuck-foot { margin-top: var(--s5); display: flex; align-items: center; gap: var(--s4); font-size: 13px; }
+.stuck-foot a { font-weight: 600; }
+.stuck-foot .link { color: var(--moss); font-weight: 500; padding: 0; }
 
 /* ---------- task list ---------- */
 

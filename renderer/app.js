@@ -111,13 +111,18 @@ function paintToday() {
   const { today, session, verdict, settings } = state;
   const section = $('today');
 
+  const stuck = session ? state.stuck : null;
   let mode = 'idle';
-  if (session) mode = onBreak(session) ? 'break' : verdict && verdict.kind === 'distraction' ? 'drift' : 'focus';
+  if (session) {
+    mode = stuck ? 'stuck' : onBreak(session) ? 'break' : verdict && verdict.kind === 'distraction' ? 'drift' : 'focus';
+  }
   section.dataset.state = mode;
 
   const showSession = !!session;
   const showPlan = !session && !!today.focusTask && !editingPlan;
-  $('session').hidden = !showSession;
+  $('session').hidden = !showSession || !!stuck;
+  $('stuck').hidden = !stuck;
+  if (stuck) paintStuck(stuck);
   $('plan-set').hidden = !showPlan;
   $('plan-empty').hidden = showSession || showPlan;
 
@@ -145,7 +150,64 @@ function paintToday() {
     $('call-now').hidden = !settings.serverConnected;
   }
 
-  if (showSession) paintSession();
+  if (showSession && !stuck) paintSession();
+}
+
+/** One phase at a time: calm, call, step (with its timer), check-in. */
+function paintStuck(stuck) {
+  const { phase, step } = stuck;
+  const text = $('stuck-step');
+  let label = '';
+  let line = '';
+  let waiting = false;
+  if (phase === 'calm') {
+    label = 'Breathing';
+    line = 'Take a minute. Nothing else.';
+    waiting = true;
+  } else if (phase === 'call') {
+    label = 'On the phone';
+    line = "Pick up. You'll find a first step together.";
+  } else if (phase === 'checkin') {
+    label = "Time's up";
+    line = 'Did you get going?';
+  } else if (!step) {
+    label = 'One moment';
+    line = 'Finding one small first step…';
+    waiting = true;
+  } else {
+    label = step.source === 'call' ? `From your call, for the next ${step.minutes} minutes` : `Your next ${step.minutes} minutes`;
+    line = step.text;
+  }
+  $('stuck-label').textContent = label;
+  text.textContent = line;
+  text.classList.toggle('waiting', waiting);
+
+  const stepShown = phase === 'step' && !!step;
+  $('stuck-actions').hidden = !(stepShown || phase === 'checkin');
+  $('stuck-call').hidden = !(stepShown && stuck.callAvailable);
+  $('call-actions').hidden = phase !== 'call';
+  const open = $('stuck-open');
+  open.hidden = !(step && step.url) || phase === 'call' || phase === 'calm';
+  if (step && step.url) open.href = step.url;
+  paintStuckClock();
+}
+
+function paintStuckClock() {
+  const stuck = state?.stuck;
+  const when = $('stuck-when');
+  if (!stuck) return;
+  if (stuck.phase === 'call') {
+    when.textContent = "If the call doesn't bring a step, I'll give you one.";
+    return;
+  }
+  if (stuck.phase !== 'step' || !stuck.step || !stuck.phaseEndsAt) {
+    when.textContent = '';
+    return;
+  }
+  const left = Math.max(0, new Date(stuck.phaseEndsAt).getTime() - Date.now());
+  const m = Math.floor(left / 60_000);
+  const s = Math.floor((left % 60_000) / 1000);
+  when.textContent = `${m}:${String(s).padStart(2, '0')} left, then I'll check in.`;
 }
 
 function paintSession() {
@@ -154,6 +216,7 @@ function paintSession() {
   paintClock();
 
   const breakNow = onBreak(session);
+  $('im-stuck').hidden = breakNow;
   $('break-5').hidden = breakNow;
   $('end-break').hidden = !breakNow;
 
@@ -239,9 +302,12 @@ function paintHistory() {
     .slice(0, 6)
     .map((h) => {
       const caught = h.drifts + h.blocks;
+      const stuck = h.stuck
+        ? `, stuck ${h.stuck === 1 ? 'once' : `${h.stuck} times`}${h.gotGoing ? ' and got going' : ''}`
+        : '';
       return `<li><strong>${esc(h.task)}</strong> ${h.minutes} min${
         caught ? `, ${caught} distraction${caught === 1 ? '' : 's'} caught` : ', no distractions'
-      }</li>`;
+      }${stuck}</li>`;
     })
     .join('');
   setHTML($('history'), html);
@@ -375,6 +441,23 @@ $('call-now').addEventListener(
     }
   }),
 );
+$('im-stuck').addEventListener('click', () => c8.imStuck());
+$('stuck-actions').addEventListener('click', (e) => {
+  const button = e.target.closest('button[data-stuck]');
+  if (button) c8.stuckAnswer(button.dataset.stuck);
+});
+$('stuck-call').addEventListener(
+  'click',
+  busy($('stuck-call'), async () => {
+    const r = await c8.stuckCall();
+    if (!r.ok) {
+      state.notice = r.error;
+      paint();
+    }
+  }),
+);
+$('skip-call').addEventListener('click', () => c8.skipCall());
+$('cancel-stuck').addEventListener('click', () => c8.cancelStuck());
 $('break-5').addEventListener('click', () => c8.takeBreak(5));
 $('end-break').addEventListener('click', () => c8.endBreak());
 $('stop-focus').addEventListener('click', () => c8.stopFocus());
@@ -480,5 +563,8 @@ c8.state().then((initial) => {
   state = initial;
   paint();
 });
-setInterval(paintClock, 1000);
+setInterval(() => {
+  paintClock();
+  paintStuckClock();
+}, 1000);
 })();

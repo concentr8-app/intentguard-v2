@@ -1,0 +1,117 @@
+/* The calm screen: forest at night, one breathing orb. Same voice (Charter italic) as the main window. */
+
+:root {
+  --night: #13211b;
+  --night-deep: #0e1914;
+  --sprout: #cfe8c4;
+  --mist: #93a998;
+  --ui: "Avenir Next", "Avenir", system-ui, -apple-system, sans-serif;
+  --voice: "Charter", "Iowan Old Style", Georgia, serif;
+  /* 4 s in, 6 s out: a longer exhale settles faster. calm.js keeps the words in step. */
+  --cycle: 10s;
+  --breathe: cubic-bezier(0.45, 0, 0.55, 1);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  height: 100%;
+  margin: 0;
+  background: radial-gradient(ellipse at 50% 42%, var(--night) 0%, var(--night-deep) 70%);
+  color: var(--sprout);
+  overflow: hidden;
+  cursor: default;
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+.calm {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  animation: arrive 600ms ease-in-out both;
+}
+
+.orb {
+  width: min(48vh, 440px);
+  height: min(48vh, 440px);
+  display: grid;
+  place-items: center;
+  margin-bottom: 24px;
+}
+
+.orb-core {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  /* closest-side: 100% is the edge of the circle, so the glow fades out before the border instead of being cut by it */
+  background: radial-gradient(circle closest-side, rgba(207, 232, 196, 0.5) 0%, rgba(207, 232, 196, 0.2) 45%, rgba(207, 232, 196, 0.06) 75%, rgba(207, 232, 196, 0) 100%);
+  transform: scale(0.55);
+  animation: breathe var(--cycle) var(--breathe) infinite;
+}
+
+@keyframes breathe {
+  0% { transform: scale(0.55); opacity: 0.7; }
+  40% { transform: scale(1); opacity: 1; }    /* end of the 4 s inhale */
+  100% { transform: scale(0.55); opacity: 0.7; } /* end of the 6 s exhale */
+}
+
+@keyframes arrive {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.cue {
+  margin: 0 0 14px;
+  font: italic 34px/1.2 var(--voice);
+  letter-spacing: 0.01em;
+  min-height: 1.2em;
+  transition: opacity 600ms ease-in-out;
+}
+
+.cue.fading { opacity: 0; }
+
+.line {
+  margin: 0;
+  max-width: 34ch;
+  text-align: center;
+  text-wrap: balance;
+  font: 17px/1.5 var(--voice);
+  color: var(--mist);
+}
+
+.foot {
+  position: fixed;
+  bottom: 48px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: baseline;
+  gap: 14px;
+  font: 13px/1 var(--ui);
+  color: var(--mist);
+}
+
+#ready {
+  font: 600 14px/1 var(--ui);
+  color: var(--sprout);
+  background: transparent;
+  border: 1px solid rgba(207, 232, 196, 0.35);
+  border-radius: 999px;
+  padding: 11px 22px;
+  cursor: pointer;
+  transition: background 400ms ease-in-out, border-color 400ms ease-in-out;
+}
+
+#ready:hover { background: rgba(207, 232, 196, 0.08); border-color: rgba(207, 232, 196, 0.6); }
+#ready:focus-visible { outline: 2px solid var(--sprout); outline-offset: 3px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .calm { animation: none; }
+  .orb-core { animation: none; transform: scale(0.8); }
+  .cue { transition: none; }
+}

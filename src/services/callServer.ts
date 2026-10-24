@@ -9,6 +9,21 @@ export interface ServerToday {
   startTime: string | null;
   lastCallAt: string | null;
   lastCallStatus: string | null;
+  /** Proposed for the stuck call (docs/call-server-api.md): the first step agreed on the phone. */
+  firstStep?: string | null;
+  firstStepAt?: string | null;
+}
+
+export interface ServerHealth {
+  ok: boolean;
+  /** Proposed: optional capabilities, e.g. "stuck-call". Older servers send none. */
+  features?: string[];
+}
+
+/** Proposed body for /api/call-now. Older servers ignore it and place the morning call. */
+export interface CallRequest {
+  reason?: 'stuck';
+  task?: string;
 }
 
 export class CallServerError extends Error {}
@@ -78,8 +93,18 @@ export class CallServerClient {
     return this.request('DELETE', '/api/me');
   }
 
-  health(): Promise<{ ok: boolean }> {
+  health(): Promise<ServerHealth> {
     return this.request('GET', '/api/health', undefined, false);
+  }
+
+  /** True only when the server says it can run a stuck call; anything else (old server, offline) is false. */
+  async supportsStuckCall(): Promise<boolean> {
+    try {
+      const health = await this.health();
+      return Array.isArray(health.features) && health.features.includes('stuck-call');
+    } catch {
+      return false;
+    }
   }
 
   pushTasks(tasks: Task[]): Promise<{ ok: boolean; count: number }> {
@@ -91,8 +116,8 @@ export class CallServerClient {
     return this.request('GET', '/api/today');
   }
 
-  callNow(): Promise<{ ok: boolean; callSid: string }> {
-    return this.request('POST', '/api/call-now', {});
+  callNow(request: CallRequest = {}): Promise<{ ok: boolean; callSid: string }> {
+    return this.request('POST', '/api/call-now', request);
   }
 
   saveSettings(settings: { phoneNumber?: string; callTime?: string; timezone?: string }): Promise<{ ok: boolean }> {

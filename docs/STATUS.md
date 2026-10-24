@@ -33,6 +33,17 @@ Supported by current code and the verification recorded below. Observer and inte
 
 Real provider calls still depend on valid credentials, account state, phone verification, and a reachable deployment. Their presence in main is not a claim that every provider account is currently ready.
 
+### "I'm stuck" recovery flow (branch `stuck-flow`, automated tests only so far)
+
+- `STUCK` is now a real state in the desktop app: calm → (optional) call → step → check-in, held in `Controller` and shown in `AppState.stuck`.
+- **Calm:** a full-screen breathing screen (`renderer/calm.html`) for up to 60 s; Esc or "I'm ready" ends it early. Warnings and blocking pause during calm and call.
+- **Step:** one tiny first step with a timer (usually 5 min). Claude (`src/services/stuck.ts`, `ANTHROPIC_API_KEY`) suggests it from the task and course; without a key or on any failure a fixed step is used, and each "Still stuck" gets a smaller one. The task's own bCourses link opens once; Claude never chooses URLs.
+- **Check-in:** "Did you get going?" → back to the session, a smaller step, or a real 5-minute break.
+- **Offer, never force:** 3 separate drifts within 10 minutes trigger a notification offering "I'm stuck"; it does not start on its own.
+- **Phone call:** offered only when the call server announces `stuck-call` (proposal in `docs/call-server-api.md`); a 4-minute timeout falls back to the prepared step.
+- Stuck moments are counted in session summaries (`stuck`, `gotGoing`).
+- Verified: 15 new tests in `src/test/stuck.test.ts` (flow, pause, fallbacks, call, timeout, old server). Not yet verified: `npm run typecheck`/`build` with real Electron types, the calm window on a real Mac (multi-display, full-screen apps), and a live Claude call.
+
 Latest automated verification on Node.js `v26.7.0`:
 
 - `npm run typecheck`: passed.
@@ -54,7 +65,7 @@ Latest automated verification on Node.js `v26.7.0`:
 - Explicit deterministic distractions never reach semantic classification, even if a page title could be educational.
 - The semantic cache is in-memory and session-local; there is no long-term AI memory.
 - An unrelated NFL search during Math homework is neutral rather than assumed on-task or blocked.
-- `STUCK` and `RECOVERING` are not yet fully first-class product states in the current implementation.
+- `STUCK` is a first-class state on the `stuck-flow` branch; `RECOVERING` is not yet a separate state. The stuck call needs the server changes proposed in `docs/call-server-api.md`.
 - Observation and intervention are macOS-specific; other platforms use a no-op observer.
 - macOS permissions and provider/deployment setup can affect demo reliability.
 
@@ -66,9 +77,11 @@ Completed: conservative, task-aware deterministic relevance.
 
 Completed: provider-agnostic semantic classification for neutral activity, with optional Groq support.
 
+In review: the “I'm stuck” recovery flow (desktop side), with stuck episodes counted per session.
+
 1. User correction such as “This is actually work.”
-2. Explicit recovery episodes and metrics.
-3. An “I'm stuck” recovery flow.
+2. Explicit recovery metrics beyond stuck episodes (time back on task after a drift).
+3. Server side of the stuck call (partner-owned).
 4. A richer intervention ladder if time remains.
 
 Plan and ship one bounded milestone at a time. Re-evaluate this sequence using demo reliability and observed user behavior.

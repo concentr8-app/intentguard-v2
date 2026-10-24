@@ -23,6 +23,12 @@ contextBridge.exposeInMainWorld('c8', {
   endBreak: () => invoke('endBreak'),
   saveSettings: (patch: unknown) => invoke('saveSettings', patch),
   openExternal: (url: string) => invoke('openExternal', url),
+  imStuck: () => invoke('imStuck'),
+  calmDone: () => invoke('calmDone'),
+  stuckAnswer: (answer: 'started' | 'smaller' | 'break') => invoke('stuckAnswer', answer),
+  stuckCall: () => invoke('stuckCall'),
+  skipCall: () => invoke('skipCall'),
+  cancelStuck: () => invoke('cancelStuck'),
   onState: (cb: (state: unknown) => void) => {
     const listener = (_event: unknown, state: unknown) => cb(state);
     ipcRenderer.on('c8:state', listener);

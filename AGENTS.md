@@ -37,6 +37,7 @@ The initial target is Berkeley students with ADHD or executive-function challeng
 - Direct bCourses/Canvas integration with a calendar-feed fallback.
 - Deterministic local classifier and focus engine.
 - Provider-agnostic semantic classifier for otherwise-neutral activity, with Groq as the first optional provider.
+- "I'm stuck" recovery flow in the `Controller`: a full-screen calm window, an optional stuck call (only when the server announces `stuck-call`), and one tiny first step from optional Claude with fixed fallback steps. Interventions pause during calm and call.
 - Node call server under `server/`.
 - Telnyx or Twilio calling providers.
 - Optional ElevenLabs voice through Telnyx.

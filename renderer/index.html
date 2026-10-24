@@ -81,11 +81,32 @@
         <div class="track" aria-hidden="true"><div class="fill" id="track-fill"></div></div>
         <p class="screen" id="screen-now"></p>
         <div class="row">
+          <button class="secondary" id="im-stuck" type="button">I'm stuck</button>
           <button class="secondary" id="break-5" type="button">Take a 5-min break</button>
           <button class="secondary" id="end-break" type="button" hidden>I'm back</button>
           <button class="link" id="stop-focus" type="button">End session</button>
         </div>
         <ol class="log" id="drift-log" aria-label="What happened this session"></ol>
+      </div>
+
+      <!-- I'm stuck: calm minute, then one small step at a time -->
+      <div id="stuck" hidden>
+        <p class="said-label" id="stuck-label"></p>
+        <p class="step-text" id="stuck-step"></p>
+        <p class="stuck-when" id="stuck-when"></p>
+        <div class="row" id="stuck-actions">
+          <button class="primary" type="button" data-stuck="started">I'm in</button>
+          <button class="secondary" type="button" data-stuck="smaller">Still stuck</button>
+          <button class="secondary" type="button" id="stuck-call" hidden>Talk it through on the phone</button>
+          <button class="link" type="button" data-stuck="break">Take a break</button>
+        </div>
+        <div class="row" id="call-actions" hidden>
+          <button class="secondary" type="button" id="skip-call">Skip the call</button>
+        </div>
+        <p class="stuck-foot">
+          <a href="#" id="stuck-open" data-external hidden>Open the assignment</a>
+          <button class="link" type="button" id="cancel-stuck">Back to my session</button>
+        </p>
       </div>
 
       <p class="notice" id="notice" role="status"></p>

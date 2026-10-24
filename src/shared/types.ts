@@ -84,7 +84,39 @@ export interface SessionSummary {
   minutes: number;
   drifts: number;
   blocks: number;
+  stuck?: number; // stuck moments during the session (missing in older history entries)
+  gotGoing?: number; // how many of them ended with "I'm going"
 }
+
+// ---------- "I'm stuck": calm down, connect, one tiny first step, check in ----------
+
+/**
+ * calm    full-screen breathing screen, interventions paused
+ * call    the phone is ringing / the student is talking it through, interventions paused
+ * step    one tiny first step with a short timer; normal watching resumes
+ * checkin the timer is up: "did you get going?"
+ */
+export type StuckPhase = 'calm' | 'call' | 'step' | 'checkin';
+
+export interface FirstStep {
+  text: string; // one concrete action, e.g. "Open the spec and read only the first section."
+  minutes: number;
+  url: string | null; // page to open for it (only the task's own link, never one a model made up)
+  source: 'claude' | 'fallback' | 'call';
+}
+
+export interface StuckEpisode {
+  startedAt: string;
+  trigger: 'button' | 'drift';
+  phase: StuckPhase;
+  phaseEndsAt: string | null; // end of the calm screen or of the step timer
+  step: FirstStep | null;
+  attempts: number; // steps offered so far; each retry asks for a smaller one
+  callAvailable: boolean; // the call server says it can do a stuck call
+  callStartedAt: string | null;
+}
+
+export type StuckOutcome = 'started' | 'break' | 'cancelled' | 'ended';
 
 /** Everything the UI needs, pushed from main to renderer on every change. */
 export interface AppState {
@@ -94,6 +126,7 @@ export interface AppState {
   syncError: string | null;
   today: TodayIntent;
   session: FocusSession | null;
+  stuck: StuckEpisode | null;
   activity: Activity | null;
   activityContext: ActivityContext | null;
   verdict: Verdict | null;
