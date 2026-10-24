@@ -178,12 +178,15 @@ const xml = (s) =>
   String(s).replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' })[c]);
 
 /**
- * Which phone carrier places the calls. Both speak (almost) the same XML:
- *  - "twilio": TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER
- *  - "telnyx": TELNYX_API_KEY, TELNYX_ACCOUNT_SID, TELNYX_APP_ID, TELNYX_PHONE_NUMBER
- * Defaults to Telnyx when a Telnyx key is set.
+ * Which service places the calls:
+ *  - "cartesia": a Cartesia voice agent does the talking (docs/CARTESIA-SETUP.md). CARTESIA_API_KEY,
+ *    CARTESIA_AGENT_ID, CARTESIA_PHONE_NUMBER_ID, CARTESIA_WEBHOOK_SECRET
+ *  - "telnyx" / "twilio": our own scripted call. They speak (almost) the same XML:
+ *    TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER  |  TELNYX_API_KEY, TELNYX_ACCOUNT_SID, TELNYX_APP_ID, TELNYX_PHONE_NUMBER
+ * Defaults to Cartesia when it is fully configured, else Telnyx when a Telnyx key is set.
  */
-const PROVIDER = (env.CALL_PROVIDER || (env.TELNYX_API_KEY ? 'telnyx' : 'twilio')).toLowerCase();
+const cartesiaReady = () => !!(env.CARTESIA_API_KEY && env.CARTESIA_AGENT_ID && env.CARTESIA_PHONE_NUMBER_ID);
+const PROVIDER = (env.CALL_PROVIDER || (cartesiaReady() ? 'cartesia' : env.TELNYX_API_KEY ? 'telnyx' : 'twilio')).toLowerCase();
 
 const VOICE = env.CALL_VOICE || env.TWILIO_VOICE || 'Polly.Joanna-Neural';
 
@@ -395,13 +398,45 @@ async function placeCall(req, u) {
   const g = globalToday();
   if (g.calls >= MAX_CALLS_PER_DAY) throw httpError(429, 'The call server reached its daily limit. Try again tomorrow.');
   const base = publicBase(req);
-  const callId = PROVIDER === 'telnyx' ? await placeTelnyxCall(u, to, base) : await placeTwilioCall(u, to, base);
+  const callId =
+    PROVIDER === 'cartesia' ? await placeCartesiaCall(u, to)
+    : PROVIDER === 'telnyx' ? await placeTelnyxCall(u, to, base)
+    : await placeTwilioCall(u, to, base);
   u.calls.count += 1;
   g.calls += 1;
   u.lastCallAt = new Date().toISOString();
   u.lastCallStatus = 'queued';
   save();
   return callId;
+}
+
+/**
+ * Cartesia voice agent: https://docs.cartesia.ai/line/integrations/telephony/outbound-dialing
+ * The agent greets with {{opening_line}} and saves the plan by calling our /cartesia/save-plan webhook tool
+ * with {{user_id}}, so the answer lands with the right student.
+ */
+async function placeCartesiaCall(u, to) {
+  const { CARTESIA_API_KEY: key, CARTESIA_AGENT_ID: agent, CARTESIA_PHONE_NUMBER_ID: from } = env;
+  if (!key || !agent || !from) {
+    throw httpError(500, 'Cartesia is not configured (CARTESIA_API_KEY, CARTESIA_AGENT_ID, CARTESIA_PHONE_NUMBER_ID)');
+  }
+  const res = await fetch('https://api.cartesia.ai/agents/calls', {
+    method: 'POST',
+    headers: { 'X-API-Key': key, 'Cartesia-Version': env.CARTESIA_VERSION || '2026-08-14', 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      from_number_id: from,
+      agent_id: agent,
+      outbound_calls: [{ to_number: to, dynamic_variables: { user_id: u.id, opening_line: openingLine(u) } }],
+    }),
+    signal: AbortSignal.timeout(10_000),
+  });
+  const body = await res.json().catch(() => ({}));
+  const upstream = (e) => (typeof e === 'string' ? e : e && (e.message || e.detail || JSON.stringify(e)));
+  if (!res.ok) throw httpError(502, `Cartesia: ${upstream(body.message) || upstream(body.error) || upstream(body.detail) || res.status}`);
+  const call = Array.isArray(body.calls) ? body.calls[0] : null;
+  // A 200 does not mean the call started: every entry has either an id or an error.
+  if (!call || call.error || !call.agent_call_id) throw httpError(502, `Cartesia: ${(call && upstream(call.error)) || 'the call did not start'}`);
+  return call.agent_call_id;
 }
 
 /** Telnyx TeXML: https://developers.telnyx.com/api-reference/texml-rest-commands/initiate-an-outbound-call */
@@ -609,6 +644,10 @@ async function route(req, res) {
       telnyxAccount: !!env.TELNYX_ACCOUNT_SID,
       telnyxApp: !!env.TELNYX_APP_ID,
       telnyxNumber: !!env.TELNYX_PHONE_NUMBER,
+      cartesiaKey: !!env.CARTESIA_API_KEY,
+      cartesiaAgent: !!env.CARTESIA_AGENT_ID,
+      cartesiaNumber: !!env.CARTESIA_PHONE_NUMBER_ID,
+      cartesiaToolSecret: !!env.CARTESIA_WEBHOOK_SECRET,
       users: Object.keys(data.users).length,
       signupsOpen: !!env.REGISTER_CODE,
       publicBase: publicBase(req),
@@ -686,12 +725,48 @@ async function route(req, res) {
       if (u.id !== 'owner') return send(res, 403, { ok: false, error: 'Owner key required' });
       return send(res, 200, { ok: true, called: schedulerTick() });
     }
+    if (p === '/api/cartesia/numbers' && m === 'GET') {
+      // Owner helper: shows the ID of your Cartesia phone number (CARTESIA_PHONE_NUMBER_ID).
+      if (u.id !== 'owner') return send(res, 403, { ok: false, error: 'Owner key required' });
+      if (!env.CARTESIA_API_KEY) throw httpError(500, 'CARTESIA_API_KEY is not set');
+      const r = await fetch('https://api.cartesia.ai/agents/phone-numbers', {
+        headers: { 'X-API-Key': env.CARTESIA_API_KEY, 'Cartesia-Version': env.CARTESIA_VERSION || '2026-08-14' },
+        signal: AbortSignal.timeout(10_000),
+      });
+      return send(res, 200, { status: r.status, body: await r.json().catch(() => null) });
+    }
     if (p === '/api/settings' && m === 'POST') {
       applySettings(u, JSON.parse((await readBody(req)) || '{}'));
       save();
       return send(res, 200, { ok: true });
     }
     return send(res, 404, { ok: false, error: 'Not found' });
+  }
+
+  // --- Cartesia agent tool: the voice agent saves what the student said (Bearer CARTESIA_WEBHOOK_SECRET) ---
+  if (p === '/cartesia/save-plan' && m === 'POST') {
+    const header = req.headers.authorization || '';
+    const given = header.startsWith('Bearer ') ? header.slice(7) : '';
+    if (!env.CARTESIA_WEBHOOK_SECRET) throw httpError(503, 'CARTESIA_WEBHOOK_SECRET is not set on the server');
+    if (!given || !safeEqual(given, env.CARTESIA_WEBHOOK_SECRET)) throw httpError(401, 'Wrong tool secret');
+    const body = JSON.parse((await readBody(req)) || '{}');
+    const u = data.users[String(body.user_id || '')];
+    if (!u) throw httpError(404, 'Unknown student. Tell the student you could not save the plan and to open Concentr8 instead.');
+    if (body.stop_calls === true) {
+      u.paused = true;
+      save();
+      return send(res, 200, 'Done. The student will not get automatic calls anymore. Confirm that kindly and say goodbye.', 'text/plain');
+    }
+    const t = today(u);
+    const task = String(body.task || '').trim().slice(0, 200);
+    const startTime = String(body.start_time || '').trim().replace(/[!?]+$/, '').slice(0, 60);
+    if (!task) throw httpError(400, 'Missing task. Ask the student which task they will start.');
+    if (!startTime) throw httpError(400, 'Missing start_time. Ask the student when they will start.');
+    t.focusTask = task;
+    t.startTime = startTime;
+    u.lastCallStatus = 'completed';
+    save();
+    return send(res, 200, `Saved: ${task} at ${startTime.replace(/\.$/, '')}. Confirm it in one short sentence, wish them luck and end the call.`, 'text/plain');
   }
 
   // --- phone-provider webhooks (Twilio and Telnyx TeXML speak the same XML) ---

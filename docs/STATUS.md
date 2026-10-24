@@ -44,7 +44,8 @@ Latest automated verification on Node.js `v26.7.0`:
 - One server serves many students: `POST /api/register` (invite code + consent) returns a personal token; `APP_API_KEY` stays the owner key; per-student phone, call time, timezone, tasks, daily call caps, "stop" on the phone, `DELETE /api/me`.
 - The app signs students up in Settings → Morning call; "I run my own call server" keeps the API-key path.
 - This is deliberately lightweight (invite code + token), not production authentication. No phone verification yet.
-- 11 server tests: `cd server && npm test`. Needs a live check on Telnyx (trial calls only verified numbers) and Cartesia (not integrated yet).
+- Calls go through a Cartesia voice agent when its secrets are set (`docs/CARTESIA-SETUP.md`), otherwise Telnyx, then Twilio. The agent saves the plan through `POST /cartesia/save-plan`.
+- 17 server tests: `cd server && npm test` (the phone providers are faked). Not yet checked live: Cartesia agent setup, calls to people other than the owner (a Telnyx trial calls only verified numbers).
 
 ## Current known limitations
 

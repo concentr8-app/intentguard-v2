@@ -11,7 +11,16 @@ if not, run this folder on Replit instead (it follows the same API, see `../docs
 ## Run it on Replit
 
 1. Import the GitHub repo into Replit, or copy this `server/` folder into a Node Repl.
-2. Add these Secrets. Pick **one** phone carrier:
+2. Add these Secrets. Pick **one** way to phone people. Cartesia (a voice agent, most natural) is used first when its secrets are set, then Telnyx, then Twilio:
+
+   **Cartesia** (setup: [`../docs/CARTESIA-SETUP.md`](../docs/CARTESIA-SETUP.md)).
+
+   | Name | Value |
+   |---|---|
+   | `CARTESIA_API_KEY` | Cartesia Playground → API Keys |
+   | `CARTESIA_AGENT_ID` | your agent's ID |
+   | `CARTESIA_PHONE_NUMBER_ID` | the ID of your Cartesia phone number |
+   | `CARTESIA_WEBHOOK_SECRET` | any long random string; also the Bearer token of the agent's `save_plan` tool |
 
    **Telnyx** (used when `TELNYX_API_KEY` is set). New accounts can call their verified number right away.
 

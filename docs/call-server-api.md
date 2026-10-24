@@ -25,7 +25,14 @@ Saying "stop" on the phone sets `paused`: no automatic calls until the student a
 
 `dueAt`, `lastCallAt`: ISO timestamps or `null`. `startTime` is what the student said, the Mac app parses it.
 
-## Twilio webhooks (public)
+## Cartesia agent tool
+
+| Path | When |
+|---|---|
+| `POST /cartesia/save-plan` | the Cartesia agent saves the answer. `Authorization: Bearer <CARTESIA_WEBHOOK_SECRET>`, body `{ "user_id", "task", "start_time" }` or `{ "user_id", "stop_calls": true }`. Answers a short plain-text message the agent reads. See `CARTESIA-SETUP.md` |
+| `GET /api/cartesia/numbers` | owner only: lists your Cartesia phone numbers (to find `CARTESIA_PHONE_NUMBER_ID`) |
+
+## Twilio / Telnyx webhooks (public, only used by the scripted fallback)
 
 | Path | When |
 |---|---|
