@@ -12,6 +12,13 @@
     "test": "tsc && node --test dist/test/*.test.js"
   },
   "license": "MIT",
+  "build": {
+    "appId": "app.concentr8.mac",
+    "productName": "Concentr8",
+    "directories": { "output": "release" },
+    "files": ["dist/main/**/*", "dist/services/**/*", "dist/shared/**/*", "renderer/**/*", "package.json"],
+    "mac": { "category": "public.app-category.productivity" }
+  },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "electron": "^37.0.0",
