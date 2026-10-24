@@ -635,7 +635,13 @@ async function route(req, res) {
   }
 
   if (m === 'OPTIONS') return send(res, 204, '', 'text/plain');
-  if (p === '/' && m === 'GET') return send(res, 200, 'Concentr8 call server is running. See /api/health.', 'text/plain');
+  if (p === '/' && m === 'GET') {
+    const page = require('path').join(__dirname, 'public', 'index.html');
+    let html;
+    try { html = require('fs').readFileSync(page, 'utf8'); } catch { return send(res, 200, 'Concentr8 call server is running. See /api/health.', 'text/plain'); }
+    const dl = env.DOWNLOAD_BASE_URL || 'https://github.com/concentr8-app/intentguard-v2/releases/latest/download';
+    return send(res, 200, html.split('{{DOWNLOAD_BASE}}').join(dl), 'text/html; charset=utf-8');
+  }
   if (p === '/api/health' && m === 'GET') {
     return send(res, 200, {
       ok: true,

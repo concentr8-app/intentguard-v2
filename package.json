@@ -9,7 +9,8 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "start": "tsc || echo 'TypeScript reported errors above; starting anyway'; electron .",
-    "test": "tsc && node --test dist/test/*.test.js"
+    "test": "tsc && node --test dist/test/*.test.js",
+    "dist": "tsc && electron-builder --mac --publish never"
   },
   "license": "MIT",
   "dependencies": {
@@ -18,13 +19,35 @@
   "build": {
     "appId": "app.concentr8.mac",
     "productName": "Concentr8",
-    "directories": { "output": "release" },
-    "files": ["dist/main/**/*", "dist/services/**/*", "dist/shared/**/*", "renderer/**/*", "package.json"],
-    "mac": { "category": "public.app-category.productivity" }
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/main/**/*",
+      "dist/services/**/*",
+      "dist/shared/**/*",
+      "renderer/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "identity": null
+    },
+    "artifactName": "Concentr8-${arch}.${ext}"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
     "electron": "^37.0.0",
-    "typescript": "^6.0.0"
+    "typescript": "^6.0.0",
+    "electron-builder": "^26.0.0"
   }
 }

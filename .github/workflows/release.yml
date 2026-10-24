@@ -1,0 +1,27 @@
+# Builds the Mac app (.dmg for Apple Silicon and Intel) and attaches it to a GitHub release.
+# Start it by pushing a tag like v0.1.0, or run it by hand under Actions.
+name: Build Mac app
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Concentr8-mac
+          path: release/*.dmg
+      - if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*.dmg
