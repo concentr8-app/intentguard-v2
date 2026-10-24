@@ -1,6 +1,7 @@
 // Concentr8 Call Server — zero dependencies, Node 18+.
-// Phones the student every morning (Twilio), asks which Canvas task they'll start and when,
-// and hands the answer to the Mac app. API contract: ../docs/call-server-api.md
+// Phones each student every morning (Telnyx or Twilio), asks which task they'll start and when,
+// and hands the answer to their Mac app. Many students can use one server (see "users" below).
+// API contract: ../docs/call-server-api.md
 //
 // Run:  node index.js        (env vars: see README.md in this folder)
 
@@ -26,23 +27,93 @@ function loadData() {
   }
 }
 
-const data = Object.assign(
-  {
+/**
+ * Everything is kept per student in data.users[id]. The student who set APP_API_KEY (the server's
+ * owner) is the user "owner"; everyone else signs up through POST /api/register and gets their own token.
+ */
+function newUser(id, fields = {}) {
+  return {
+    id,
+    tokenHash: null,
+    phoneNumber: null,
+    callTime: '08:00',
+    timezone: DEFAULT_TZ,
     tasks: [],
-    settings: { phoneNumber: null, callTime: '08:00', timezone: DEFAULT_TZ },
     today: { date: null, focusTask: null, startTime: null },
     lastCallAt: null,
     lastCallStatus: null,
     lastAutoCallDate: null,
-  },
-  loadData(),
-);
+    paused: false, // said "stop" on the phone: no more automatic calls until they ask for one
+    consentAt: null,
+    createdAt: new Date().toISOString(),
+    calls: { date: null, count: 0 },
+    ...fields,
+  };
+}
+
+function migrate(raw) {
+  const out = { users: raw.users || {}, publicBase: raw.publicBase || null, global: raw.global || { date: null, calls: 0, signups: 0 } };
+  if (!raw.users && (raw.settings || raw.tasks)) {
+    // The single-student format of the first version becomes the owner.
+    out.users.owner = newUser('owner', {
+      phoneNumber: (raw.settings && raw.settings.phoneNumber) || null,
+      callTime: (raw.settings && raw.settings.callTime) || '08:00',
+      timezone: (raw.settings && raw.settings.timezone) || DEFAULT_TZ,
+      tasks: raw.tasks || [],
+      today: raw.today || { date: null, focusTask: null, startTime: null },
+      lastCallAt: raw.lastCallAt || null,
+      lastCallStatus: raw.lastCallStatus || null,
+      lastAutoCallDate: raw.lastAutoCallDate || null,
+    });
+  }
+  return out;
+}
+
+const data = migrate(loadData());
 
 function save() {
   const tmp = DATA_FILE + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
   fs.renameSync(tmp, DATA_FILE);
 }
+
+function owner() {
+  if (!data.users.owner) data.users.owner = newUser('owner');
+  return data.users.owner;
+}
+
+const sha256 = (text) => crypto.createHash('sha256').update(text).digest('hex');
+
+function safeEqual(a, b) {
+  const x = Buffer.from(String(a));
+  const y = Buffer.from(String(b));
+  return x.length === y.length && crypto.timingSafeEqual(x, y);
+}
+
+/** "(415) 555-1234", "4155551234" or "+14155551234" -> "+14155551234"; null if it isn't a phone number. */
+function normalizePhone(input) {
+  const raw = String(input || '').replace(/[\s().-]/g, '');
+  if (/^\d{10}$/.test(raw)) return `+1${raw}`;
+  if (/^1\d{10}$/.test(raw)) return `+${raw}`;
+  if (/^\+[1-9]\d{7,14}$/.test(raw)) return raw;
+  return null;
+}
+
+const validTimezone = (tzName) => {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tzName });
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const phoneOf = (u) => u.phoneNumber || (u.id === 'owner' ? normalizePhone(env.USER_PHONE_NUMBER) : null);
+
+const userByPhone = (phone) => {
+  const p = normalizePhone(phone);
+  return p ? Object.values(data.users).find((u) => phoneOf(u) === p) || null : null;
+};
 
 // ---------- time ----------
 
@@ -63,33 +134,33 @@ function zoned(date, timeZone) {
   return parts;
 }
 
-const tz = () => data.settings.timezone || DEFAULT_TZ;
-const localDate = (d = new Date()) => {
-  const p = zoned(d, tz());
+const tzOf = (u) => u.timezone || DEFAULT_TZ;
+const localDate = (u, d = new Date()) => {
+  const p = zoned(d, tzOf(u));
   return `${p.year}-${p.month}-${p.day}`;
 };
-const localHHMM = (d = new Date()) => {
-  const p = zoned(d, tz());
+const localHHMM = (u, d = new Date()) => {
+  const p = zoned(d, tzOf(u));
   return `${p.hour}:${p.minute}`;
 };
 
 /** Today's record, reset after midnight in the student's timezone. */
-function today() {
-  const date = localDate();
-  if (data.today.date !== date) data.today = { date, focusTask: null, startTime: null };
-  return data.today;
+function today(u) {
+  const date = localDate(u);
+  if (u.today.date !== date) u.today = { date, focusTask: null, startTime: null };
+  return u.today;
 }
 
 /** "due today", "due tomorrow", "due Monday" — for reading out loud. */
-function spokenDue(iso) {
+function spokenDue(u, iso) {
   if (!iso) return '';
   const due = new Date(iso);
   const now = new Date();
   if (due < now) return ', which is overdue';
   const dayMs = 86_400_000;
-  if (localDate(due) === localDate(now)) return ', due today';
-  if (localDate(due) === localDate(new Date(now.getTime() + dayMs))) return ', due tomorrow';
-  if (due - now < 6 * dayMs) return `, due ${zoned(due, tz()).weekday}`;
+  if (localDate(u, due) === localDate(u, now)) return ', due today';
+  if (localDate(u, due) === localDate(u, new Date(now.getTime() + dayMs))) return ', due tomorrow';
+  if (due - now < 6 * dayMs) return `, due ${zoned(due, tzOf(u)).weekday}`;
   return '';
 }
 
@@ -121,14 +192,14 @@ function say(text) {
   return `<Say voice="${xml(VOICE)}"${ref}>${xml(text)}</Say>`;
 }
 
-function gather(step, attempt, prompt) {
-  const hints = data.tasks
+function gather(u, step, attempt, prompt) {
+  const hints = u.tasks
     .slice(0, 8)
     .flatMap((t) => [t.title, spokenCourse(t.course)])
     .filter(Boolean)
     .join(', ')
     .slice(0, 900);
-  const action = `/twilio/gather?step=${step}&amp;try=${attempt}`;
+  const action = `/twilio/gather?u=${u.id}&amp;step=${step}&amp;try=${attempt}`;
   // Twilio understands speechTimeout="auto"; Telnyx wants seconds.
   const speechTimeout = PROVIDER === 'telnyx' ? '2' : 'auto';
   return (
@@ -136,22 +207,22 @@ function gather(step, attempt, prompt) {
     (hints ? ` hints="${xml(hints)}"` : '') +
     `>${say(prompt)}</Gather>` +
     // Reached only if the student said nothing:
-    `<Redirect>/twilio/gather?step=${step}&amp;try=${attempt}&amp;empty=1</Redirect>`
+    `<Redirect>/twilio/gather?u=${u.id}&amp;step=${step}&amp;try=${attempt}&amp;empty=1</Redirect>`
   );
 }
 
 const twiml = (body) => `<?xml version="1.0" encoding="UTF-8"?><Response>${body}</Response>`;
 
-function openingLine() {
-  const hour = Number(zoned(new Date(), tz()).hour);
+function openingLine(u) {
+  const hour = Number(zoned(new Date(), tzOf(u)).hour);
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Hi' : 'Good evening';
-  const top = [...data.tasks]
+  const top = [...u.tasks]
     .sort((a, b) => (a.dueAt ? Date.parse(a.dueAt) : Infinity) - (b.dueAt ? Date.parse(b.dueAt) : Infinity))
     .slice(0, 3);
   if (top.length === 0) {
     return `${greeting}, this is Concentr8. What's the one thing you want to get done today?`;
   }
-  const list = top.map((t) => `${t.title} for ${spokenCourse(t.course)}${spokenDue(t.dueAt)}`).join('. ');
+  const list = top.map((t) => `${t.title} for ${spokenCourse(t.course)}${spokenDue(u, t.dueAt)}`).join('. ');
   const count = top.length === 1 ? 'one thing' : `${['', 'one', 'two', 'three'][top.length]} things`;
   return `${greeting}, this is Concentr8. You have ${count} coming up. ${list}. Which one will you start with?`;
 }
@@ -168,9 +239,9 @@ function cleanAnswer(speech) {
 
 // ---------- optional: Claude makes the reply sound natural ----------
 
-async function claudeUnderstand(speech) {
+async function claudeUnderstand(u, speech) {
   if (!env.ANTHROPIC_API_KEY) return null;
-  const tasks = data.tasks.slice(0, 10).map((t) => `- ${t.title} (${t.course})`).join('\n') || '(none)';
+  const tasks = u.tasks.slice(0, 10).map((t) => `- ${t.title} (${t.course})`).join('\n') || '(none)';
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -277,11 +348,12 @@ async function canvasFromFeed() {
   return tasks.filter((t) => !t.dueAt || (Date.parse(t.dueAt) > now - 86_400_000 && Date.parse(t.dueAt) < now + 14 * 86_400_000));
 }
 
-async function refreshCanvas() {
-  if (!env.CANVAS_TOKEN && !env.CANVAS_FEED_URL) return;
+/** Only the owner's bCourses is read by the server (from env). Everyone else's app pushes their tasks. */
+async function refreshCanvas(u) {
+  if (u.id !== 'owner' || (!env.CANVAS_TOKEN && !env.CANVAS_FEED_URL)) return;
   try {
     const tasks = env.CANVAS_TOKEN ? await canvasFromApi() : await canvasFromFeed();
-    data.tasks = tasks.slice(0, 100);
+    u.tasks = tasks.slice(0, 100);
     save();
   } catch (err) {
     console.error('Canvas refresh failed, using the last known tasks:', err.message);
@@ -302,20 +374,38 @@ function publicBase(req) {
   return `http://localhost:${PORT}`;
 }
 
-async function placeCall(req) {
-  await refreshCanvas();
-  const to = data.settings.phoneNumber || env.USER_PHONE_NUMBER;
-  if (!to) throw httpError(400, 'No phone number to call (set USER_PHONE_NUMBER or POST /api/settings)');
+const MAX_CALLS_PER_USER_PER_DAY = Number(env.MAX_CALLS_PER_USER_PER_DAY || 10);
+const MAX_CALLS_PER_DAY = Number(env.MAX_CALLS_PER_DAY || 300);
+const MAX_SIGNUPS_PER_DAY = Number(env.MAX_SIGNUPS_PER_DAY || 200);
+
+/** Counters for the global limits, reset at midnight UTC. */
+function globalToday() {
+  const date = new Date().toISOString().slice(0, 10);
+  if (data.global.date !== date) data.global = { date, calls: 0, signups: 0 };
+  return data.global;
+}
+
+async function placeCall(req, u) {
+  await refreshCanvas(u);
+  const to = phoneOf(u);
+  if (!to) throw httpError(400, 'No phone number to call. Set one in the app (Settings).');
+  const date = localDate(u);
+  if (u.calls.date !== date) u.calls = { date, count: 0 };
+  if (u.calls.count >= MAX_CALLS_PER_USER_PER_DAY) throw httpError(429, 'Too many calls today. Try again tomorrow.');
+  const g = globalToday();
+  if (g.calls >= MAX_CALLS_PER_DAY) throw httpError(429, 'The call server reached its daily limit. Try again tomorrow.');
   const base = publicBase(req);
-  const callId = PROVIDER === 'telnyx' ? await placeTelnyxCall(to, base) : await placeTwilioCall(to, base);
-  data.lastCallAt = new Date().toISOString();
-  data.lastCallStatus = 'queued';
+  const callId = PROVIDER === 'telnyx' ? await placeTelnyxCall(u, to, base) : await placeTwilioCall(u, to, base);
+  u.calls.count += 1;
+  g.calls += 1;
+  u.lastCallAt = new Date().toISOString();
+  u.lastCallStatus = 'queued';
   save();
   return callId;
 }
 
 /** Telnyx TeXML: https://developers.telnyx.com/api-reference/texml-rest-commands/initiate-an-outbound-call */
-async function placeTelnyxCall(to, base) {
+async function placeTelnyxCall(u, to, base) {
   const { TELNYX_API_KEY: key, TELNYX_ACCOUNT_SID: account, TELNYX_APP_ID: app, TELNYX_PHONE_NUMBER: from } = env;
   if (!key || !account || !app || !from) {
     throw httpError(500, 'Telnyx is not configured (TELNYX_API_KEY, TELNYX_ACCOUNT_SID, TELNYX_APP_ID, TELNYX_PHONE_NUMBER)');
@@ -327,9 +417,9 @@ async function placeTelnyxCall(to, base) {
       To: to,
       From: from,
       ApplicationSid: app,
-      Url: `${base}/twilio/voice`,
+      Url: `${base}/twilio/voice?u=${u.id}`,
       UrlMethod: 'POST',
-      StatusCallback: `${base}/twilio/status`,
+      StatusCallback: `${base}/twilio/status?u=${u.id}`,
       StatusCallbackMethod: 'POST',
       StatusCallbackEvent: 'initiated ringing answered completed',
     }),
@@ -344,7 +434,7 @@ async function placeTelnyxCall(to, base) {
   return body.sid || body.call_sid || body.CallSid || 'telnyx-call';
 }
 
-async function placeTwilioCall(to, base) {
+async function placeTwilioCall(u, to, base) {
   const sid = env.TWILIO_ACCOUNT_SID;
   const token = env.TWILIO_AUTH_TOKEN;
   const from = env.TWILIO_PHONE_NUMBER;
@@ -353,9 +443,9 @@ async function placeTwilioCall(to, base) {
   const form = new URLSearchParams({
     To: to,
     From: from,
-    Url: `${base}/twilio/voice`,
+    Url: `${base}/twilio/voice?u=${u.id}`,
     Method: 'POST',
-    StatusCallback: `${base}/twilio/status`,
+    StatusCallback: `${base}/twilio/status?u=${u.id}`,
     StatusCallbackMethod: 'POST',
   });
   for (const e of ['initiated', 'ringing', 'answered', 'completed']) form.append('StatusCallbackEvent', e);
@@ -442,24 +532,24 @@ function send(res, status, body, type = 'application/json') {
   res.end(type === 'application/json' ? JSON.stringify(body) : body);
 }
 
-function authorized(req, url) {
-  const key = env.APP_API_KEY;
-  if (!key) return false;
+/** The student a request belongs to: the owner (APP_API_KEY) or someone who signed up (their own token). */
+function userFromRequest(req, url) {
   const header = req.headers.authorization || '';
   const given = header.startsWith('Bearer ') ? header.slice(7) : url.searchParams.get('key') || '';
-  const a = Buffer.from(given);
-  const b = Buffer.from(key);
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
+  if (!given) return null;
+  if (env.APP_API_KEY && safeEqual(given, env.APP_API_KEY)) return owner();
+  const hash = sha256(given);
+  return Object.values(data.users).find((u) => u.tokenHash && safeEqual(u.tokenHash, hash)) || null;
 }
 
-function todayResponse() {
-  const t = today();
+function todayResponse(u) {
+  const t = today(u);
   return {
     date: t.date,
     focusTask: t.focusTask,
     startTime: t.startTime,
-    lastCallAt: data.lastCallAt,
-    lastCallStatus: data.lastCallStatus,
+    lastCallAt: u.lastCallAt,
+    lastCallStatus: u.lastCallStatus,
   };
 }
 
@@ -467,12 +557,40 @@ const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 // ---------- routes ----------
 
+/** Which student a phone-provider webhook is about: ?u=<id>, else the number that called us. */
+function webhookUser(url, params) {
+  const id = url.searchParams.get('u');
+  if (id && data.users[id]) return data.users[id];
+  const direction = firstParam(params, ['Direction', 'direction']);
+  const from = firstParam(params, ['From', 'from']);
+  const to = firstParam(params, ['To', 'to']);
+  return userByPhone(direction.startsWith('inbound') || !direction ? from : to) || userByPhone(to);
+}
+
+/** Applies { phoneNumber, callTime, timezone, paused } to a student; throws 400 on bad values. */
+function applySettings(u, body) {
+  if (typeof body.phoneNumber === 'string' && body.phoneNumber.trim()) {
+    const phone = normalizePhone(body.phoneNumber);
+    if (!phone) throw httpError(400, 'That phone number does not look right. Use the +1 415 555 1234 format.');
+    u.phoneNumber = phone;
+  }
+  if (typeof body.callTime === 'string') {
+    if (!HHMM.test(body.callTime)) throw httpError(400, 'callTime must look like 08:00');
+    u.callTime = body.callTime;
+  }
+  if (typeof body.timezone === 'string') {
+    if (!validTimezone(body.timezone)) throw httpError(400, 'Unknown timezone');
+    u.timezone = body.timezone;
+  }
+  if (typeof body.paused === 'boolean') u.paused = body.paused;
+}
+
 async function route(req, res) {
   const url = new URL(req.url, 'http://localhost');
   const p = url.pathname.replace(/\/+$/, '') || '/';
   const m = req.method;
 
-  // Remember our public address so the 8:00 scheduler can give Twilio the right webhook URL.
+  // Remember our public address so the 8:00 scheduler can give the phone provider the right webhook URL.
   if (req.headers.host && !/^(localhost|127\.)/.test(req.headers.host)) {
     const seen = `${req.headers['x-forwarded-proto'] || 'https'}://${req.headers.host}`;
     if (data.publicBase !== seen) {
@@ -483,16 +601,55 @@ async function route(req, res) {
 
   if (m === 'OPTIONS') return send(res, 204, '', 'text/plain');
   if (p === '/' && m === 'GET') return send(res, 200, 'Concentr8 call server is running. See /api/health.', 'text/plain');
-  if (p === '/api/health' && m === 'GET') return send(res, 200, { ok: true, provider: PROVIDER, telnyxKey: !!env.TELNYX_API_KEY, telnyxAccount: !!env.TELNYX_ACCOUNT_SID, telnyxApp: !!env.TELNYX_APP_ID, telnyxNumber: !!env.TELNYX_PHONE_NUMBER, phone: !!(data.settings.phoneNumber || env.USER_PHONE_NUMBER), publicBase: publicBase(req) });
+  if (p === '/api/health' && m === 'GET') {
+    return send(res, 200, {
+      ok: true,
+      provider: PROVIDER,
+      telnyxKey: !!env.TELNYX_API_KEY,
+      telnyxAccount: !!env.TELNYX_ACCOUNT_SID,
+      telnyxApp: !!env.TELNYX_APP_ID,
+      telnyxNumber: !!env.TELNYX_PHONE_NUMBER,
+      users: Object.keys(data.users).length,
+      signupsOpen: !!env.REGISTER_CODE,
+      publicBase: publicBase(req),
+    });
+  }
 
-  // --- app API (Bearer APP_API_KEY) ---
+  // --- sign-up (no login yet; protected by the invite code) ---
+  if (p === '/api/register' && m === 'POST') {
+    const body = JSON.parse((await readBody(req)) || '{}');
+    if (!env.REGISTER_CODE) throw httpError(403, 'Sign-ups are closed on this server.');
+    if (!safeEqual(String(body.inviteCode || '').trim(), env.REGISTER_CODE)) throw httpError(403, 'Wrong invite code.');
+    if (body.consent !== true) throw httpError(400, 'You need to agree to get a morning phone call.');
+    const phone = normalizePhone(body.phoneNumber);
+    if (!phone) throw httpError(400, 'That phone number does not look right. Use the +1 415 555 1234 format.');
+    const g = globalToday();
+    let u = userByPhone(phone);
+    if (!u) {
+      if (g.signups >= MAX_SIGNUPS_PER_DAY) throw httpError(429, 'Too many sign-ups today. Try again tomorrow.');
+      g.signups += 1;
+      u = newUser(crypto.randomBytes(8).toString('hex'), { phoneNumber: phone });
+      data.users[u.id] = u;
+    }
+    applySettings(u, { callTime: body.callTime, timezone: body.timezone });
+    u.consentAt = new Date().toISOString();
+    u.paused = false;
+    // A new token replaces the old one, so signing up again on a new Mac works.
+    const token = crypto.randomBytes(24).toString('hex');
+    u.tokenHash = sha256(token);
+    save();
+    return send(res, 200, { ok: true, userId: u.id, token });
+  }
+
+  // --- app API (Bearer token: the owner's APP_API_KEY or the student's own token) ---
   if (p.startsWith('/api/') || p.startsWith('/cron/')) {
-    if (!authorized(req, url)) return send(res, 401, { ok: false, error: 'Missing or wrong API key' });
+    const u = userFromRequest(req, url);
+    if (!u) return send(res, 401, { ok: false, error: 'Missing or wrong API key' });
 
     if (p === '/api/tasks' && m === 'POST') {
       const body = JSON.parse((await readBody(req)) || '{}');
       if (!Array.isArray(body.tasks)) throw httpError(400, 'Expected { tasks: [...] }');
-      data.tasks = body.tasks.slice(0, 100).map((t) => ({
+      u.tasks = body.tasks.slice(0, 100).map((t) => ({
         id: String(t.id ?? ''),
         title: String(t.title ?? 'Untitled').slice(0, 200),
         course: String(t.course ?? '').slice(0, 100),
@@ -500,54 +657,67 @@ async function route(req, res) {
         url: t.url ? String(t.url) : null,
       }));
       save();
-      return send(res, 200, { ok: true, count: data.tasks.length });
+      return send(res, 200, { ok: true, count: u.tasks.length });
     }
-    if (p === '/api/today' && m === 'GET') return send(res, 200, todayResponse());
+    if (p === '/api/today' && m === 'GET') return send(res, 200, todayResponse(u));
     if (p === '/api/tasks' && m === 'GET') {
-      await refreshCanvas();
-      return send(res, 200, { tasks: data.tasks });
+      await refreshCanvas(u);
+      return send(res, 200, { tasks: u.tasks });
+    }
+    if (p === '/api/me' && m === 'GET') {
+      return send(res, 200, { id: u.id, phoneNumber: phoneOf(u), callTime: u.callTime, timezone: u.timezone, paused: u.paused });
+    }
+    if (p === '/api/me' && m === 'DELETE') {
+      if (u.id === 'owner') throw httpError(400, 'The owner account cannot be deleted from the app.');
+      delete data.users[u.id];
+      save();
+      return send(res, 200, { ok: true });
     }
     if ((p === '/api/call-now' && m === 'POST') || (p === '/cron/morning' && m === 'GET')) {
-      const callSid = await placeCall(req);
+      u.paused = false; // asking for a call again ends a "stop"
+      const callSid = await placeCall(req, u);
       // A cron hit at/after call time counts as today's morning call; a test hit at 2 a.m. doesn't.
-      if (p === '/cron/morning' && localHHMM() >= (data.settings.callTime || '08:00')) data.lastAutoCallDate = localDate();
+      if (p === '/cron/morning' && localHHMM(u) >= (u.callTime || '08:00')) u.lastAutoCallDate = localDate(u);
       save();
       return send(res, 200, { ok: true, callSid });
     }
+    if (p === '/cron/tick' && m === 'GET') {
+      // For hosts that sleep: an external cron opens this every few minutes (owner key only).
+      if (u.id !== 'owner') return send(res, 403, { ok: false, error: 'Owner key required' });
+      return send(res, 200, { ok: true, called: schedulerTick() });
+    }
     if (p === '/api/settings' && m === 'POST') {
-      const body = JSON.parse((await readBody(req)) || '{}');
-      if (typeof body.phoneNumber === 'string' && body.phoneNumber.trim()) data.settings.phoneNumber = body.phoneNumber.trim();
-      if (typeof body.callTime === 'string' && HHMM.test(body.callTime)) data.settings.callTime = body.callTime;
-      if (typeof body.timezone === 'string') {
-        try {
-          new Intl.DateTimeFormat('en-US', { timeZone: body.timezone });
-          data.settings.timezone = body.timezone;
-        } catch {
-          throw httpError(400, 'Unknown timezone');
-        }
-      }
+      applySettings(u, JSON.parse((await readBody(req)) || '{}'));
       save();
       return send(res, 200, { ok: true });
     }
     return send(res, 404, { ok: false, error: 'Not found' });
   }
 
-  // --- Twilio webhooks ---
+  // --- phone-provider webhooks (Twilio and Telnyx TeXML speak the same XML) ---
   if (p.startsWith('/twilio/') && m === 'POST') {
     const params = webhookParams(await readBody(req), req.headers['content-type']);
     if (PROVIDER === 'twilio' && !validTwilioSignature(req, params)) return send(res, 403, 'Bad signature', 'text/plain');
+    const u = webhookUser(url, params);
 
     if (p === '/twilio/status') {
-      data.lastCallStatus = firstParam(params, ['CallStatus', 'call_status', 'status']) || data.lastCallStatus;
-      save();
+      if (u) {
+        u.lastCallStatus = firstParam(params, ['CallStatus', 'call_status', 'status']) || u.lastCallStatus;
+        save();
+      }
       return send(res, 204, '', 'text/plain');
     }
 
+    if (!u) {
+      // Someone phoned our number without signing up.
+      return send(res, 200, twiml(say('Hi, this is Concentr8. Please sign up in the Concentr8 app to get your morning call. Bye!') + '<Hangup/>'), 'text/xml');
+    }
+
     if (p === '/twilio/voice') {
-      data.lastCallStatus = 'in-progress';
-      if (firstParam(params, ['Direction', 'direction']).startsWith('inbound')) data.lastCallAt = new Date().toISOString();
+      u.lastCallStatus = 'in-progress';
+      if (firstParam(params, ['Direction', 'direction']).startsWith('inbound')) u.lastCallAt = new Date().toISOString();
       save();
-      return send(res, 200, twiml(gather('task', 0, openingLine())), 'text/xml');
+      return send(res, 200, twiml(gather(u, 'task', 0, openingLine(u))), 'text/xml');
     }
 
     if (p === '/twilio/gather') {
@@ -559,23 +729,29 @@ async function route(req, res) {
       if (!speech && !url.searchParams.get('empty')) {
         console.log('gather callback without speech, fields:', [...params.keys()].join(', ') || '(none)');
       }
-      const t = today();
+      const t = today(u);
+
+      if (STOP_WORDS.test(speech)) {
+        u.paused = true;
+        save();
+        return send(res, 200, twiml(say("Okay, I won't call you again. You can turn the call back on in the Concentr8 app. Bye!") + '<Hangup/>'), 'text/xml');
+      }
 
       if (step === 'task') {
         if (!speech) {
-          if (attempt === 0) return send(res, 200, twiml(gather('task', 1, "Sorry, I didn't catch that. Which one will you start with?")), 'text/xml');
+          if (attempt === 0) return send(res, 200, twiml(gather(u, 'task', 1, "Sorry, I didn't catch that. Which one will you start with?")), 'text/xml');
           return send(res, 200, twiml(say("No worries. Open Concentr8 when you're ready, and pick one there. Bye!") + '<Hangup/>'), 'text/xml');
         }
-        const smart = await claudeUnderstand(speech);
+        const smart = await claudeUnderstand(u, speech);
         t.focusTask = (smart && smart.task) || cleanAnswer(speech) || speech;
         save();
         const reply = (smart && smart.reply) || `Great, ${t.focusTask}. When will you start? For example, nine thirty.`;
-        return send(res, 200, twiml(gather('time', 0, reply)), 'text/xml');
+        return send(res, 200, twiml(gather(u, 'time', 0, reply)), 'text/xml');
       }
 
       if (step === 'time') {
         if (!speech) {
-          if (attempt === 0) return send(res, 200, twiml(gather('time', 1, 'When will you start? You can say a time, or now.')), 'text/xml');
+          if (attempt === 0) return send(res, 200, twiml(gather(u, 'time', 1, 'When will you start? You can say a time, or now.')), 'text/xml');
           return send(res, 200, twiml(say(`Okay. Start ${t.focusTask || 'it'} whenever you're ready. I'll keep distractions away. Bye!`) + '<Hangup/>'), 'text/xml');
         }
         t.startTime = speech.replace(/[!?]+$/, ''); // keep the dot in "a.m."
@@ -593,6 +769,9 @@ async function route(req, res) {
   return send(res, 404, { ok: false, error: 'Not found' });
 }
 
+/** Says "stop" (or similar) on the phone: we stop the automatic calls. */
+const STOP_WORDS = /\b(stop (calling|calls)|don'?t call|do not call|unsubscribe|opt out|remove me|leave me alone)\b|^stop\b/i;
+
 const server = http.createServer((req, res) => {
   route(req, res).catch((err) => {
     const status = err.status || (err instanceof SyntaxError ? 400 : 500);
@@ -607,30 +786,37 @@ const server = http.createServer((req, res) => {
 
 // ---------- daily scheduler ----------
 
+/** Places today's morning call for everyone whose call time just passed. Returns how many calls were started. */
 function schedulerTick() {
-  const date = localDate();
-  if (data.lastAutoCallDate === date) return;
-  const now = localHHMM();
-  const target = data.settings.callTime || '08:00';
-  // Fire once in the first 15 minutes after the call time (survives a restart a few minutes late).
-  const [th, tm] = target.split(':').map(Number);
-  const [nh, nm] = now.split(':').map(Number);
-  const late = nh * 60 + nm - (th * 60 + tm);
-  if (late < 0 || late > 15) return;
-  data.lastAutoCallDate = date;
-  save();
-  placeCall(null)
-    .then((sid) => console.log(`[${new Date().toISOString()}] morning call placed: ${sid}`))
-    .catch((err) => console.error('morning call failed:', err.message));
+  let started = 0;
+  for (const u of Object.values(data.users)) {
+    if (u.paused || !phoneOf(u)) continue;
+    if (u.id !== 'owner' && !u.consentAt) continue;
+    const date = localDate(u);
+    if (u.lastAutoCallDate === date) continue;
+    // Fire once in the first 15 minutes after the call time (survives a restart a few minutes late).
+    const [th, tm] = (u.callTime || '08:00').split(':').map(Number);
+    const [nh, nm] = localHHMM(u).split(':').map(Number);
+    const late = nh * 60 + nm - (th * 60 + tm);
+    if (late < 0 || late > 15) continue;
+    u.lastAutoCallDate = date;
+    save();
+    started += 1;
+    placeCall(null, u)
+      .then((sid) => console.log(`[${new Date().toISOString()}] morning call placed for ${u.id}: ${sid}`))
+      .catch((err) => console.error(`morning call for ${u.id} failed:`, err.message));
+  }
+  return started;
 }
 
 if (require.main === module) {
   server.listen(PORT, () => {
     console.log(`Concentr8 call server on :${PORT} (public: ${publicBase(null)}, calls via ${PROVIDER})`);
-    if (!env.APP_API_KEY) console.warn('APP_API_KEY is not set: the app API will refuse every request.');
+    if (!env.APP_API_KEY) console.warn('APP_API_KEY is not set: only students who signed up can use the app API.');
+    if (!env.REGISTER_CODE) console.warn('REGISTER_CODE is not set: nobody can sign up yet (set an invite code to let friends join).');
   });
   setInterval(schedulerTick, 30_000);
   schedulerTick();
 }
 
-module.exports = { server, cleanAnswer, openingLine, spokenCourse, data };
+module.exports = { server, cleanAnswer, openingLine, spokenCourse, normalizePhone, schedulerTick, data };
