@@ -4,19 +4,21 @@ This file records fast-changing implementation status. Keep durable product and 
 
 ## Current main
 
-- Code baseline reviewed for this documentation-only update: `3901208` (`origin/main` on 2026-10-24).
-- No application, server, provider, test, or architecture behavior is changed by this documentation update.
-- Use `git log -1 --oneline` to identify the documentation commit layered on this baseline.
+- Code baseline for the conservative task-aware relevance milestone: `dd92834` (`origin/main` on 2026-10-24).
+- Use `git log -1 --oneline` to identify the implementation commit layered on this baseline.
 
 ## Proven working
 
-Supported by current code, automated checks, and the manual verification completed before this documentation pass:
+Supported by current code and the verification recorded below. Observer and intervention flows also received manual verification before the documentation pass; the relevance milestone was intentionally verified with automated checks only.
 
 - Sessions start from arbitrary typed intents, including intents that do not match bCourses.
 - Foreground Mac application monitoring through AppleScript/`osascript`.
 - Active page-title capture for scriptable browsers.
 - Complete active URL capture, including query parameters.
 - `ActivityContext` carries both the observed activity and active intent to classification.
+- Conservative deterministic relevance recognizes strong intent overlap in page titles, URL paths, and query values.
+- Direct Canvas assignment, quiz, and discussion resources remain focus.
+- Generic productive sites and apps, including unrelated GitHub pages, remain neutral unless relevance is strong.
 - Direct bCourses sync and calendar-feed fallback.
 - Visible warning, grace period, and redirect/restore behavior for configured distractions.
 - Intentional breaks pause interventions and can be ended to resume monitoring.
@@ -26,19 +28,17 @@ Supported by current code, automated checks, and the manual verification complet
 
 Real provider calls still depend on valid credentials, account state, phone verification, and a reachable deployment. Their presence in main is not a claim that every provider account is currently ready.
 
-Documentation-task verification on Node.js `v26.7.0`:
+Latest automated verification on Node.js `v26.7.0`:
 
 - `npm run typecheck`: passed.
-- `npm test`: passed, 16/16 tests.
+- `npm test`: passed, 19/19 tests.
 - `npm run build`: passed.
 
 ## Current known limitations
 
-- Semantic task relevance is not solved.
-- The classifier receives the intent, but deterministic logic largely ignores semantic relevance.
-- Generic productive domains and apps can be falsely labeled focus.
-- An unrelated NFL search during Math homework may be neutral rather than explicitly recognized as off-task.
-- GitHub and other generally useful domains should not remain universally on-task without task context.
+- Deeper semantic task relevance is not solved; deterministic matching cannot understand synonyms or page meaning.
+- Ambiguous activity intentionally remains neutral and is not blocked.
+- An unrelated NFL search during Math homework is neutral rather than assumed on-task or blocked.
 - `STUCK` and `RECOVERING` are not yet fully first-class product states in the current implementation.
 - Observation and intervention are macOS-specific; other platforms use a no-op observer.
 - macOS permissions and provider/deployment setup can affect demo reliability.
@@ -47,12 +47,13 @@ Documentation-task verification on Node.js `v26.7.0`:
 
 Planning guidance, not an immutable roadmap:
 
-1. Conservative, task-aware deterministic relevance.
-2. Semantic/Claude classification only for genuinely ambiguous activity.
-3. User correction such as “This is actually work.”
-4. Explicit recovery episodes and metrics.
-5. An “I'm stuck” recovery flow.
-6. A richer intervention ladder if time remains.
+Completed: conservative, task-aware deterministic relevance.
+
+1. Semantic/Claude classification only for genuinely ambiguous activity.
+2. User correction such as “This is actually work.”
+3. Explicit recovery episodes and metrics.
+4. An “I'm stuck” recovery flow.
+5. A richer intervention ladder if time remains.
 
 Plan and ship one bounded milestone at a time. Re-evaluate this sequence using demo reliability and observed user behavior.
 

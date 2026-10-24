@@ -23,10 +23,51 @@ test('domain rules match subdomains and path prefixes', () => {
 
 test('classify: distraction, focus, neutral', () => {
   assert.equal(classify(context(act('Google Chrome', 'https://www.youtube.com/watch?v=1')), DEFAULT_RULES).kind, 'distraction');
-  assert.equal(classify(context(act('Google Chrome', 'https://bcourses.berkeley.edu/courses/1')), DEFAULT_RULES).kind, 'focus');
+  assert.equal(classify(context(act('Google Chrome', 'https://bcourses.berkeley.edu/courses/1/assignments/8')), DEFAULT_RULES).kind, 'focus');
   assert.equal(classify(context(act('Safari', 'https://en.wikipedia.org/wiki/Markov_chain')), DEFAULT_RULES).kind, 'neutral');
   assert.equal(classify(context(act('Discord')), DEFAULT_RULES).kind, 'distraction');
-  assert.equal(classify(context(act('Visual Studio Code')), DEFAULT_RULES).kind, 'focus');
+  assert.equal(classify(context(act('Visual Studio Code')), DEFAULT_RULES).kind, 'neutral');
+  assert.equal(classify(context(act('Electron')), DEFAULT_RULES).kind, 'focus');
+});
+
+test('classify: Math intent requires strong page relevance', () => {
+  const math = (activity: Activity) => context(activity, 'Finish Math 185 HW8');
+  assert.equal(
+    classify(math(act('Google Chrome', 'https://bcourses.berkeley.edu/courses/10', 'HW8: MATH 185')), DEFAULT_RULES).kind,
+    'focus',
+  );
+  assert.equal(
+    classify(math(act('Google Chrome', 'https://www.google.com/search?q=Math+185+HW8', 'Google Search')), DEFAULT_RULES).kind,
+    'focus',
+  );
+  assert.equal(
+    classify(math(act('Google Chrome', 'https://www.google.com/search?q=nfl+scores', 'nfl scores - Google Search')), DEFAULT_RULES).kind,
+    'neutral',
+  );
+  assert.equal(
+    classify(math(act('Google Chrome', 'https://github.com/facebook/react', 'facebook/react: The library for web interfaces')), DEFAULT_RULES).kind,
+    'neutral',
+  );
+});
+
+test('classify: Concentr8 intent recognizes related pages without digit-only matching', () => {
+  const concentr8 = (activity: Activity) => context(activity, 'Build Concentr8 CalHacks demo');
+  assert.equal(
+    classify(concentr8(act('Google Chrome', 'https://github.com/concentr8-app/intentguard-v2', 'GitHub')), DEFAULT_RULES).kind,
+    'focus',
+  );
+  assert.equal(
+    classify(concentr8(act('Google Chrome', 'https://www.google.com/search?q=concentr8+calhacks', 'Google Search')), DEFAULT_RULES).kind,
+    'focus',
+  );
+  assert.equal(
+    classify(concentr8(act('Google Chrome', 'https://github.com/example/HW8', 'HW8 homework')), DEFAULT_RULES).kind,
+    'neutral',
+  );
+  assert.equal(
+    classify(concentr8(act('Google Chrome', 'https://www.instagram.com/', 'Instagram')), DEFAULT_RULES).kind,
+    'distraction',
+  );
 });
 
 test('classify: Firefox via window title', () => {
@@ -198,6 +239,31 @@ test('FocusEngine: nudge, then block and restore the last work tab', async () =>
 
   const summary = engine.stop();
   assert.equal(summary?.blocks, 3);
+});
+
+test('FocusEngine: neutral activity is never blocked', async () => {
+  let clock = 1_000_000;
+  const screen = {
+    current: act('Google Chrome', 'https://github.com/facebook/react', 'facebook/react: The library for web interfaces'),
+  };
+  const { platform, calls } = fakePlatform(screen);
+  const engine = new FocusEngine({
+    platform,
+    notify: () => {},
+    onChange: () => {},
+    rules: () => DEFAULT_RULES,
+    graceSeconds: () => 0,
+    fallbackUrl: () => null,
+    now: () => clock,
+  });
+  engine.start('Finish Math 185 HW8', null, 50);
+
+  await engine.tick();
+  clock += 60_000;
+  await engine.tick();
+
+  assert.equal(engine.verdict?.kind, 'neutral');
+  assert.deepEqual(calls, []);
 });
 
 test('FocusEngine: breaks pause blocking, sessions end on time', async () => {
