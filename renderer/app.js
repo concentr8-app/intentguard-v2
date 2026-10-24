@@ -1,5 +1,7 @@
 // Concentr8 UI. Plain JS: the main process pushes the full AppState (see src/shared/types.ts),
 // and this file paints it. Talks to main only through window.c8 (src/main/preload.ts).
+// Keep bindings out of global scope because contextBridge exposes c8 as a non-configurable window property.
+(() => {
 'use strict';
 
 const c8 = window.c8;
@@ -430,3 +432,4 @@ c8.state().then((initial) => {
   paint();
 });
 setInterval(paintClock, 1000);
+})();
