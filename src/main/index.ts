@@ -94,9 +94,10 @@ function openCalm() {
   calm.loadFile(path.join(__dirname, '..', '..', 'renderer', 'calm.html'));
   calm.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   calm.webContents.on('will-navigate', (event) => event.preventDefault());
+  // No setSimpleFullScreen: it changes app-wide presentation options (hidden Dock/menu bar) that outlive this window.
+  // Display bounds + 'screen-saver' level + enableLargerThanScreen already cover the whole screen.
   calm.once('ready-to-show', () => {
     if (calm.isDestroyed()) return;
-    if (process.platform === 'darwin') calm.setSimpleFullScreen(true); // covers the screen without a new Space
     calm.show();
     calm.focus();
     app.focus({ steal: true });

@@ -265,6 +265,74 @@ test('break and cancel end the episode; ending the session mid-episode is record
   assert.equal(controller.getState().stuck, null);
 });
 
+test('a double click on "Still stuck" asks for one smaller step, not two', async () => {
+  const asked: Array<[number, string | null]> = [];
+  const releases: Array<() => void> = [];
+  const provider: StepProvider = {
+    name: 'slow',
+    model: 'slow',
+    suggest: (input) =>
+      new Promise((resolve) => {
+        asked.push([input.attempt, input.previousStep]);
+        releases.push(() => resolve({ text: `step ${input.attempt}`, minutes: 5 }));
+      }),
+  };
+  const { controller } = setup({ stepProvider: provider });
+  controller.startFocus('Essay');
+  controller.imStuck();
+  controller.calmDone();
+  releases[0]();
+  await flush();
+  controller.stuckAnswer('smaller');
+  controller.stuckAnswer('smaller');
+  releases[1]?.();
+  await flush();
+  assert.deepEqual(asked, [
+    [1, null],
+    [2, 'step 1'],
+  ]);
+  assert.equal(controller.getState().stuck?.step?.text, 'step 2');
+});
+
+test('a step that arrives after the episode ended is ignored', async () => {
+  const releases: Array<() => void> = [];
+  const provider: StepProvider = {
+    name: 'slow',
+    model: 'slow',
+    suggest: () => new Promise((resolve) => releases.push(() => resolve({ text: 'late', minutes: 5 }))),
+  };
+  const { controller, opened } = setup({ stepProvider: provider });
+  controller.startFocus('Project 2: Multi-Agent Search');
+  controller.imStuck();
+  controller.calmDone();
+  controller.cancelStuck();
+  controller.imStuck(); // a new episode, still calm
+  releases[0]();
+  await flush();
+  const stuck = controller.getState().stuck!;
+  assert.equal(stuck.phase, 'calm');
+  assert.equal(stuck.step, null);
+  assert.deepEqual(opened, []);
+});
+
+test('no "Rough start?" offer right after a stuck episode', async () => {
+  const quiet: Platform = { supported: true, activity: async () => null, redirect: async () => false, closeTab: async () => false, hideApp: async () => false };
+  const { controller, notes, tick, now, advance } = setup({ platform: quiet });
+  controller.startFocus('Essay');
+  const drifts = controller.getState().session!.drifts;
+  const drift = (target: string) => drifts.push({ at: new Date(now()).toISOString(), target, action: 'nudged' });
+  drift('youtube.com');
+  drift('reddit.com');
+  controller.imStuck();
+  controller.calmDone();
+  await flush();
+  drift('instagram.com'); // third drift during the step
+  controller.stuckAnswer('started');
+  advance(3_000);
+  await tick();
+  assert.ok(!notes.includes('Rough start?'));
+});
+
 test('stuck needs a running session', () => {
   const { controller } = setup();
   assert.equal(controller.imStuck().ok, false);
@@ -299,9 +367,14 @@ test('a warning followed by its block counts as one drift', () => {
 
 // ---------- the optional phone call ----------
 
-function mockServer(t: { after(fn: () => void): void }, opts: { features?: string[]; firstStepAfter?: number }) {
+function mockServer(
+  t: { after(fn: () => void): void },
+  opts: { features?: string[]; failCall?: boolean; existingStep?: { text: string; at: string } },
+) {
   const calls: Array<{ path: string; body: unknown }> = [];
-  let todayStep: { firstStep: string; firstStepAt: string } | null = null;
+  let todayStep: { firstStep: string; firstStepAt: string } | null = opts.existingStep
+    ? { firstStep: opts.existingStep.text, firstStepAt: opts.existingStep.at }
+    : null;
   const realFetch = globalThis.fetch;
   globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input).replace('https://calls.example', '');
@@ -311,7 +384,10 @@ function mockServer(t: { after(fn: () => void): void }, opts: { features?: strin
     if (url === '/api/today') {
       body = { date: '2026-10-24', focusTask: null, startTime: null, lastCallAt: null, lastCallStatus: null, ...(todayStep ?? {}) };
     }
-    if (url === '/api/call-now') body = { ok: true, callSid: 'call-1' };
+    if (url === '/api/call-now') {
+      if (opts.failCall) return new Response(JSON.stringify({ error: 'Cartesia: the call did not start' }), { status: 502 });
+      body = { ok: true, callSid: 'call-1' };
+    }
     return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }) as typeof fetch;
   t.after(() => {
@@ -322,7 +398,8 @@ function mockServer(t: { after(fn: () => void): void }, opts: { features?: strin
 
 test('stuck call: offered only when the server supports it, and the agreed step comes back from the call', async (t) => {
   const server = mockServer(t, { features: ['stuck-call'] });
-  const { controller, advance, now } = setup({ withServer: true });
+  const youtube = youtubePlatform();
+  const { controller, advance, now, notes, tick } = setup({ withServer: true, platform: youtube.platform });
   controller.startFocus('Project 2: Multi-Agent Search');
   controller.imStuck();
   await flush();
@@ -335,10 +412,18 @@ test('stuck call: offered only when the server supports it, and the agreed step 
   const call = server.calls.find((c) => c.path === 'POST /api/call-now');
   assert.deepEqual(call?.body, { reason: 'stuck', task: 'Project 2: Multi-Agent Search' });
 
-  // Interventions stay paused during the call.
+  // Interventions stay paused during the call: YouTube is on screen, nothing is warned or closed.
   advance(6_000);
-  await controller.stuckTick();
+  await tick();
+  advance(20_000);
+  await tick();
   assert.equal(controller.getState().stuck?.phase, 'call', 'no step yet');
+  assert.ok(!notes.some((n) => n.startsWith('Back to')));
+  assert.deepEqual(youtube.actions, []);
+
+  // A second call can't be placed while one is running.
+  assert.equal((await controller.stuckCall()).ok, false);
+  assert.equal(server.calls.filter((c) => c.path === 'POST /api/call-now').length, 1);
 
   server.agree('Open search.py and read the comment above depthFirstSearch.', now());
   advance(6_000);
@@ -347,6 +432,60 @@ test('stuck call: offered only when the server supports it, and the agreed step 
   assert.equal(stuck.phase, 'step');
   assert.equal(stuck.step?.source, 'call');
   assert.equal(stuck.step?.text, 'Open search.py and read the comment above depthFirstSearch.');
+});
+
+test('stuck call ignores the step from an earlier call and trusts server time, not the Mac clock', async (t) => {
+  // The server still holds yesterday's step, and its clock runs 10 minutes behind this Mac.
+  const server = mockServer(t, { features: ['stuck-call'], existingStep: { text: 'Old step', at: '2026-10-23T16:00:00Z' } });
+  const { controller, advance, now } = setup({ withServer: true });
+  controller.startFocus('Essay');
+  controller.imStuck();
+  await flush();
+  controller.calmDone();
+  await flush();
+  await controller.stuckCall();
+
+  advance(6_000);
+  await controller.stuckTick();
+  assert.equal(controller.getState().stuck?.phase, 'call', 'the old step is not taken');
+
+  server.agree('Write the first sentence of the intro.', now() - 10 * 60_000);
+  advance(6_000);
+  await controller.stuckTick();
+  assert.equal(controller.getState().stuck?.step?.text, 'Write the first sentence of the intro.');
+});
+
+test('a failed call request goes back to the step with a fresh timer', async (t) => {
+  mockServer(t, { features: ['stuck-call'], failCall: true });
+  const { controller, now } = setup({ withServer: true });
+  controller.startFocus('Essay');
+  controller.imStuck();
+  await flush();
+  controller.calmDone();
+  await flush();
+  const result = await controller.stuckCall();
+  assert.equal(result.ok, false);
+  assert.match(result.error!, /did not start/);
+  const stuck = controller.getState().stuck!;
+  assert.equal(stuck.phase, 'step');
+  assert.equal(Date.parse(stuck.phaseEndsAt!), now() + stuck.step!.minutes * 60_000);
+});
+
+test('no call during the calm screen or while the first step is still loading', async (t) => {
+  const server = mockServer(t, { features: ['stuck-call'] });
+  let release: (v: { text: string; minutes: number }) => void = () => {};
+  const slow: StepProvider = { name: 'slow', model: 'slow', suggest: () => new Promise((resolve) => (release = resolve)) };
+  const { controller } = setup({ withServer: true, stepProvider: slow });
+  controller.startFocus('Essay');
+  controller.imStuck();
+  await flush();
+  assert.equal((await controller.stuckCall()).ok, false, 'calm');
+  controller.calmDone();
+  assert.equal((await controller.stuckCall()).ok, false, 'step still loading');
+  assert.ok(!server.calls.some((c) => c.path === 'POST /api/call-now'));
+  release({ text: 'Read the prompt once.', minutes: 5 });
+  await flush();
+  assert.equal(controller.getState().stuck?.step?.text, 'Read the prompt once.');
 });
 
 test('stuck call timeout falls back to the prepared step and restarts its timer', async (t) => {

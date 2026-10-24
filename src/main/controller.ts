@@ -75,6 +75,9 @@ export class Controller {
   private pendingStep: Promise<FirstStep> | null = null;
   private lastCallPollAt = 0;
   private callPolling = false;
+  private callPending = false; // the call request is still going out; don't poll yet
+  /** firstStepAt the server held before this call: only a different, newer one counts. undefined = unknown. */
+  private callBaseline: string | null | undefined = undefined;
   private lastStuckOfferAt = -Infinity;
 
   constructor(private readonly deps: ControllerDeps) {
@@ -447,6 +450,7 @@ export class Controller {
       callStartedAt: null,
     };
     this.stuck = episode;
+    this.lastStuckOfferAt = now; // no "Rough start?" offer on top of an episode the student just started
     this.pendingStep = this.fetchStep(null);
     void this.checkStuckCall(episode);
     this.log(`[stuck] episode started trigger=${trigger}`);
@@ -479,7 +483,8 @@ export class Controller {
       this.focus.takeBreak(5);
       return;
     }
-    const previous = episode.step?.text ?? null;
+    if (!episode.step) return; // a smaller step is already on its way (double click)
+    const previous = episode.step.text;
     episode.phase = 'step';
     episode.step = null;
     episode.phaseEndsAt = null;
@@ -488,27 +493,50 @@ export class Controller {
     void this.showStep(episode);
   }
 
-  /** "Talk it through on the phone": only offered when the server announced stuck calls. */
+  /**
+   * "Talk it through on the phone": only offered when the server announced stuck calls, and only while a step is
+   * shown (so there is always something to fall back to). The call phase starts right away, before the request
+   * finishes, so the step buttons are gone and a second call can't be placed.
+   */
   async stuckCall(): Promise<{ ok: boolean; error?: string }> {
     const episode = this.stuck;
     const server = this.server();
     const session = this.focus.session;
-    if (!episode || !server || !session || !episode.callAvailable) {
+    if (
+      !episode ||
+      !server ||
+      !session ||
+      !episode.callAvailable ||
+      !episode.step ||
+      (episode.phase !== 'step' && episode.phase !== 'checkin')
+    ) {
       return { ok: false, error: 'The phone call is not available right now.' };
     }
-    try {
-      await server.callNow({ reason: 'stuck', task: session.task });
-    } catch (err) {
-      return { ok: false, error: (err as Error).message };
-    }
-    if (this.stuck !== episode) return { ok: true };
     const now = this.now();
     episode.phase = 'call';
     episode.callStartedAt = new Date(now).toISOString();
     episode.phaseEndsAt = new Date(now + CALL_TIMEOUT_MS).toISOString();
     this.lastCallPollAt = now;
-    this.log('[stuck] call requested');
+    this.callPending = true;
     this.emit();
+    try {
+      // Compare server timestamps with each other, never with this Mac's clock.
+      this.callBaseline = await server.today().then(
+        (t) => t.firstStepAt ?? null,
+        () => undefined,
+      );
+      await server.callNow({ reason: 'stuck', task: session.task });
+    } catch (err) {
+      if (this.stuck === episode && episode.phase === 'call') {
+        episode.phase = 'step';
+        episode.phaseEndsAt = new Date(this.now() + episode.step.minutes * 60_000).toISOString();
+        this.emit();
+      }
+      return { ok: false, error: (err as Error).message };
+    } finally {
+      this.callPending = false;
+    }
+    this.log('[stuck] call requested');
     return { ok: true };
   }
 
@@ -544,7 +572,7 @@ export class Controller {
     }
 
     if (episode.phase === 'call') {
-      if (!this.callPolling && now - this.lastCallPollAt >= CALL_POLL_MS) {
+      if (!this.callPending && !this.callPolling && now - this.lastCallPollAt >= CALL_POLL_MS) {
         this.lastCallPollAt = now;
         this.callPolling = true;
         let step: FirstStep | null;
@@ -642,8 +670,14 @@ export class Controller {
     try {
       const today = await server.today();
       const text = typeof today.firstStep === 'string' ? today.firstStep.trim() : '';
-      const at = today.firstStepAt ? Date.parse(today.firstStepAt) : NaN;
-      if (!text || !(at >= Date.parse(episode.callStartedAt))) return null;
+      const at = today.firstStepAt ?? null;
+      if (!text || !at || !Number.isFinite(Date.parse(at))) return null;
+      const base = this.callBaseline;
+      const fresh =
+        base === undefined
+          ? Date.parse(at) >= Date.parse(episode.callStartedAt) // baseline unknown: best effort with this Mac's clock
+          : base === null || Date.parse(at) > Date.parse(base);
+      if (!fresh) return null;
       return { text: text.slice(0, 240), minutes: 5, url: this.stepInput(null).taskUrl, source: 'call' };
     } catch {
       return null;
@@ -656,6 +690,8 @@ export class Controller {
     this.log(`[stuck] episode ended outcome=${outcome}`);
     this.stuck = null;
     this.pendingStep = null;
+    this.callBaseline = undefined;
+    this.lastStuckOfferAt = this.now(); // drifts from before or during the episode don't trigger a new offer
     this.emit();
   }
 
