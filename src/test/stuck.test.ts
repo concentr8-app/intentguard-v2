@@ -353,6 +353,50 @@ test('repeated drifting offers "I\'m stuck" once, without starting it', async ()
   assert.equal(controller.getState().stuck, null);
 });
 
+test('five distractions in 10 minutes start "I\'m stuck"', async () => {
+  const quiet: Platform = { supported: true, activity: async () => null, redirect: async () => false, closeTab: async () => false, hideApp: async () => false };
+  const { controller, notes, tick, now, advance, shown } = setup({ platform: quiet });
+  controller.startFocus('Essay');
+  const drifts = controller.getState().session!.drifts;
+  const drift = (target: string) => {
+    drifts.push({ at: new Date(now()).toISOString(), target, action: 'nudged' });
+    advance(60_000);
+  };
+
+  for (const target of ['youtube.com', 'reddit.com', 'instagram.com']) drift(target);
+  await tick();
+  assert.equal(notes.filter((n) => n === 'Rough start?').length, 1);
+  assert.equal(controller.getState().stuck, null);
+
+  drift('discord.com');
+  await tick();
+  assert.equal(controller.getState().stuck, null, 'four distractions do not start it');
+
+  drift('tiktok.com');
+  await tick();
+  assert.equal(controller.getState().stuck?.phase, 'calm');
+  assert.equal(controller.getState().stuck?.trigger, 'drift');
+  assert.equal(notes.filter((n) => n === "Let's reset").length, 1);
+  assert.equal(shown(), 1);
+
+  await tick();
+  assert.equal(notes.filter((n) => n === "Let's reset").length, 1, 'the open episode is not started again');
+
+  controller.cancelStuck();
+  advance(3_000);
+  await tick();
+  assert.equal(controller.getState().stuck, null);
+  assert.equal(notes.filter((n) => n === "Let's reset").length, 1, 'the same five do not start it again');
+
+  // Still inside the 15-minute offer cooldown, so only a new set of five may force it.
+  for (const target of ['a.com', 'b.com', 'c.com', 'd.com', 'e.com']) drift(target);
+  await tick();
+  assert.equal(controller.getState().stuck?.trigger, 'drift');
+  assert.equal(notes.filter((n) => n === "Let's reset").length, 2);
+  assert.equal(notes.filter((n) => n === 'Rough start?').length, 1);
+  assert.equal(shown(), 2);
+});
+
 test('a warning followed by its block counts as one drift', () => {
   const at = (m: number) => new Date(Date.UTC(2026, 9, 24, 17, m)).toISOString();
   const drifts: DriftEvent[] = [

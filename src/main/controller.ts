@@ -8,6 +8,7 @@
 // "I'm stuck" (inside a session):
 //   calm screen (interventions paused) -> optional phone call -> one tiny first step with a timer
 //   -> "did you get going?" -> back to the session, a smaller step, or a real break.
+//   3 separate drifts in 10 minutes offers it. 5 in that window starts the calm screen.
 
 import type {
   AppState,
@@ -54,8 +55,10 @@ const CLOCK_TICK_MS = 20_000;
 export const CALM_MS = 60_000;
 export const CALL_TIMEOUT_MS = 4 * 60_000;
 const CALL_POLL_MS = 5_000;
-/** This many nudges/blocks within the window and Concentr8 offers "I'm stuck" (never forces it). */
+/** This many separate drifts within the window and Concentr8 offers "I'm stuck". */
 export const STUCK_OFFER_DRIFTS = 3;
+/** This many separate drifts within the same window starts the calm screen. */
+export const STUCK_FORCE_DRIFTS = 5;
 const STUCK_OFFER_WINDOW_MS = 10 * 60_000;
 const STUCK_OFFER_COOLDOWN_MS = 15 * 60_000;
 
@@ -79,6 +82,8 @@ export class Controller {
   /** firstStepAt the server held before this call: only a different, newer one counts. undefined = unknown. */
   private callBaseline: string | null | undefined = undefined;
   private lastStuckOfferAt = -Infinity;
+  /** Drifts at or before this time already led to an episode, so they do not start another. */
+  private driftCountFloor = -Infinity;
 
   constructor(private readonly deps: ControllerDeps) {
     this.now = deps.now ?? Date.now;
@@ -605,14 +610,24 @@ export class Controller {
     }
   }
 
-  /** Repeated drifting is a hint, not proof: offer the stuck flow, never start it uninvited. */
+  /**
+   * Repeated drifting: 3 separate drifts in 10 minutes offers "I'm stuck".
+   * 5 in that same window starts the calm screen. The offer cooldown does not block the force.
+   */
   private maybeOfferStuck() {
     const session = this.focus.session;
     if (!session || this.stuck) return;
     const now = this.now();
     if (session.breakUntil && Date.parse(session.breakUntil) > now) return;
+    const count = countDriftStarts(session.drifts, Math.max(now - STUCK_OFFER_WINDOW_MS, this.driftCountFloor));
+    if (count >= STUCK_FORCE_DRIFTS) {
+      this.imStuck('drift');
+      this.deps.notify('Let\'s reset', 'Five distractions in 10 minutes. One calm minute, then one tiny step.');
+      this.deps.showWindow();
+      return;
+    }
     if (now - this.lastStuckOfferAt < STUCK_OFFER_COOLDOWN_MS) return;
-    if (countDriftStarts(session.drifts, now - STUCK_OFFER_WINDOW_MS) < STUCK_OFFER_DRIFTS) return;
+    if (count < STUCK_OFFER_DRIFTS) return;
     this.lastStuckOfferAt = now;
     this.deps.notify('Rough start?', 'If you feel stuck, press "I\'m stuck" in Concentr8: one calm minute, then one tiny step.');
   }
@@ -691,7 +706,9 @@ export class Controller {
     this.stuck = null;
     this.pendingStep = null;
     this.callBaseline = undefined;
-    this.lastStuckOfferAt = this.now(); // drifts from before or during the episode don't trigger a new offer
+    const now = this.now();
+    this.lastStuckOfferAt = now; // drifts from before or during the episode don't trigger a new offer
+    this.driftCountFloor = now + 1; // `countDriftStarts` includes its start time, so this instant is excluded
     this.emit();
   }
 

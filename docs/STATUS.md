@@ -39,7 +39,7 @@ Real provider calls still depend on valid credentials, account state, phone veri
 - **Calm:** a full-screen breathing screen (`renderer/calm.html`) for up to 60 s; Esc or "I'm ready" ends it early. Warnings and blocking pause during calm and call.
 - **Step:** one tiny first step with a timer (usually 5 min). Claude (`src/services/stuck.ts`, `ANTHROPIC_API_KEY`) suggests it from the task and course; without a key or on any failure a fixed step is used, and each "Still stuck" gets a smaller one. The task's own bCourses link opens once; Claude never chooses URLs.
 - **Check-in:** "Did you get going?" → back to the session, a smaller step, or a real 5-minute break.
-- **Offer, never force:** 3 separate drifts within 10 minutes trigger a notification offering "I'm stuck"; it does not start on its own.
+- **Offer, then force:** 3 separate drifts within 10 minutes trigger a notification offering "I'm stuck". 5 separate drifts within that same window start the calm screen. A warning followed by its block counts as one drift. Drifts that already led to an episode do not start another one.
 - **Phone call:** offered only when the call server announces `stuck-call` (proposal in `docs/call-server-api.md`); a 4-minute timeout falls back to the prepared step.
 - Stuck moments are counted in session summaries (`stuck`, `gotGoing`).
 - Global shortcut **⌃⌥⌘S** starts it from any app, registered only while a session runs (not ⌥⌘S: that is "Save All" in VS Code). If another app owns the chord, the button and menu item still work.
