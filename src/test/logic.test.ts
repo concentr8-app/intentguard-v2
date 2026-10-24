@@ -6,7 +6,7 @@ import type { Activity, Task } from '../shared/types';
 import { classify, DEFAULT_RULES, matchesDomainRule } from '../services/rules';
 import { localDate, localHHMM, parseSpokenTime } from '../services/time';
 import { matchTask } from '../services/match';
-import { nextLink, normalizePlannerItems } from '../services/canvas';
+import { isFeedUrl, nextLink, normalizePlannerItems, parseIcsTasks } from '../services/canvas';
 import { FocusEngine } from '../services/focus';
 import type { Platform } from '../services/platform';
 
@@ -88,6 +88,40 @@ test('Canvas: pagination and planner normalization', () => {
   assert.deepEqual(out.map((t) => t.title), ['A', 'B']);
   assert.equal(out[1].url, 'https://bcourses.berkeley.edu/courses/7/assignments/1');
   assert.equal(out[1].course, 'COMPSCI 188');
+});
+
+test('Canvas: calendar feed fallback', () => {
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'BEGIN:VEVENT',
+    'UID:event-assignment-101',
+    'DTSTART:20261025T065900Z',
+    'SUMMARY:Project 2: Multi-Agent Search [COMPSCI 188 - LEC 001]',
+    'URL:https://bcourses.berkeley.edu/courses/7/assignments/101',
+    'END:VEVENT',
+    'BEGIN:VEVENT',
+    'UID:event-calendar-event-55',
+    'DTSTART:20261025T170000Z',
+    'SUMMARY:Office hours [COMPSCI 188]',
+    'END:VEVENT',
+    'BEGIN:VEVENT',
+    'UID:event-assignment-102',
+    'DTSTART;VALUE=DATE:20261027',
+    'SUMMARY:Reading response\\, week 9 [ENGIN 183E]',
+    'END:VEVENT',
+    'BEGIN:VEVENT',
+    'UID:event-assignment-90',
+    'DTSTART:20260901T065900Z',
+    'SUMMARY:Old homework [STAT 134]',
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n');
+  const out = parseIcsTasks(ics, TZ, 14, new Date('2026-10-24T15:00:00Z'));
+  assert.deepEqual(out.map((t) => t.title), ['Project 2: Multi-Agent Search', 'Reading response, week 9']);
+  assert.equal(out[0].course, 'COMPSCI 188 - LEC 001');
+  assert.equal(localHHMM(new Date(out[1].dueAt!), TZ), '23:59'); // all-day -> end of day in Berkeley
+  assert.ok(isFeedUrl('https://bcourses.berkeley.edu/feeds/calendars/user_abc.ics'));
+  assert.ok(!isFeedUrl('7~abcdefTOKEN'));
 });
 
 function fakePlatform(screen: { current: Activity }) {

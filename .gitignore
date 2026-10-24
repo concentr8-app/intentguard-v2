@@ -1,5 +1,6 @@
 node_modules/
 dist/
 .env
-*.js.map
 .DS_Store
+server/data.json
+server/data.json.tmp

@@ -1,0 +1,14 @@
+{
+  "name": "concentr8-call-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Phones the student every morning via Twilio and hands their plan to the Concentr8 Mac app.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}

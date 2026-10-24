@@ -3,8 +3,86 @@
 // Docs: https://canvas.instructure.com/doc/api/
 
 import type { Task } from '../shared/types';
+import { fromZoned } from './time';
 
 export const BERKELEY_CANVAS = 'https://bcourses.berkeley.edu';
+
+/** A calendar feed link (bCourses → Calendar → Calendar Feed) instead of a token. */
+export function isFeedUrl(input: string): boolean {
+  return /^https?:\/\/\S+(\/feeds\/calendars\/|\.ics(\?|$))/i.test(input.trim());
+}
+
+/** Reads assignments from a Canvas iCal feed. Works even where students can't create tokens. */
+export async function feedTasks(feedUrl: string, timeZone: string, days = 14, now = new Date()): Promise<Task[]> {
+  let res: Response;
+  try {
+    res = await fetch(feedUrl.trim(), { signal: AbortSignal.timeout(15_000) });
+  } catch (err) {
+    throw new CanvasError(`Can't reach the calendar feed (${(err as Error).message})`);
+  }
+  if (!res.ok) throw new CanvasError(`Calendar feed answered ${res.status}`, res.status);
+  const text = await res.text();
+  if (!text.includes('BEGIN:VCALENDAR')) throw new CanvasError("That link isn't a calendar feed");
+  return parseIcsTasks(text, timeZone, days, now);
+}
+
+function icsDate(value: string, params: string, timeZone: string): string | null {
+  const m = value.match(/^(\d{4})(\d{2})(\d{2})(?:T(\d{2})(\d{2})(\d{2})?(Z)?)?$/);
+  if (!m) return null;
+  const [, y, mo, d, h, mi, , z] = m;
+  if (!h) return fromZoned(+y, +mo, +d, 23, 59, timeZone).toISOString(); // all-day: end of that day
+  if (z) return new Date(Date.UTC(+y, +mo - 1, +d, +h, +mi)).toISOString();
+  const tzid = params.match(/TZID=([^;:]+)/i)?.[1] || timeZone;
+  try {
+    return fromZoned(+y, +mo, +d, +h, +mi, tzid).toISOString();
+  } catch {
+    return fromZoned(+y, +mo, +d, +h, +mi, timeZone).toISOString();
+  }
+}
+
+function icsText(value: string): string {
+  return value.replace(/\\n/gi, ' ').replace(/\\([,;\\])/g, '$1').trim();
+}
+
+export function parseIcsTasks(ics: string, timeZone: string, days = 14, now = new Date()): Task[] {
+  const lines = ics.replace(/\r\n/g, '\n').replace(/\n[ \t]/g, '').split('\n'); // unfold
+  const tasks: Task[] = [];
+  let ev: Record<string, { value: string; params: string }> | null = null;
+  for (const line of lines) {
+    if (line === 'BEGIN:VEVENT') ev = {};
+    else if (line === 'END:VEVENT' && ev) {
+      const uid = ev.UID?.value || '';
+      const summary = icsText(ev.SUMMARY?.value || 'Untitled');
+      // Canvas UIDs look like "event-assignment-123" or "event-calendar-event-456".
+      if (/assignment/i.test(uid)) {
+        const courseMatch = summary.match(/\s*\[([^\]]+)\]\s*$/);
+        const dueAt = ev.DTSTART ? icsDate(ev.DTSTART.value, ev.DTSTART.params, timeZone) : null;
+        tasks.push({
+          id: uid,
+          title: courseMatch ? summary.slice(0, courseMatch.index).trim() : summary,
+          course: courseMatch ? courseMatch[1] : 'bCourses',
+          dueAt,
+          url: ev.URL?.value || null,
+          kind: 'assignment',
+        });
+      }
+      ev = null;
+    } else if (ev) {
+      const colon = line.indexOf(':');
+      if (colon > 0) {
+        const head = line.slice(0, colon);
+        const semi = head.indexOf(';');
+        const name = (semi === -1 ? head : head.slice(0, semi)).toUpperCase();
+        ev[name] = { value: line.slice(colon + 1), params: semi === -1 ? '' : head.slice(semi + 1) };
+      }
+    }
+  }
+  const from = now.getTime() - 24 * 3_600_000;
+  const to = now.getTime() + days * 24 * 3_600_000;
+  return sortByDue(
+    tasks.filter((t) => !t.dueAt || (Date.parse(t.dueAt) >= from && Date.parse(t.dueAt) <= to)),
+  );
+}
 
 export class CanvasError extends Error {
   constructor(message: string, readonly status?: number) {

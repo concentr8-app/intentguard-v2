@@ -6,7 +6,7 @@
 //   -> FocusEngine nudges/blocks drift until the session ends.
 
 import type { AppState, Settings, Task, TodayIntent } from '../shared/types';
-import { CanvasClient, demoTasks } from '../services/canvas';
+import { CanvasClient, demoTasks, feedTasks, isFeedUrl } from '../services/canvas';
 import { CallServerClient } from '../services/callServer';
 import { FocusEngine } from '../services/focus';
 import { matchTask } from '../services/match';
@@ -128,12 +128,23 @@ export class Controller {
 
   // ---------- Canvas ----------
 
-  async connectCanvas(baseUrl: string, token: string): Promise<{ ok: boolean; error?: string }> {
+  /** `secret` is a personal access token, or the calendar feed link as a fallback. */
+  async connectCanvas(baseUrl: string, secret: string): Promise<{ ok: boolean; error?: string }> {
     const base = (baseUrl || this.settings.canvasBaseUrl).trim();
+    const value = secret.trim();
+    if (!value) return { ok: false, error: 'Paste your token or calendar feed link first.' };
     try {
-      const name = await new CanvasClient(base, token.trim()).whoAmI();
-      this.store.canvasToken = token.trim();
-      this.store.updateSettings({ canvasBaseUrl: base, canvasConnected: true, canvasUserName: name, demoMode: false });
+      if (isFeedUrl(value)) {
+        await feedTasks(value, this.settings.timezone);
+        this.store.canvasToken = value;
+        this.store.updateSettings({ canvasConnected: true, canvasFeed: true, canvasUserName: null, demoMode: false });
+        await this.syncCanvas();
+        this.say('Connected to your bCourses calendar feed.');
+        return { ok: true };
+      }
+      const name = await new CanvasClient(base, value).whoAmI();
+      this.store.canvasToken = value;
+      this.store.updateSettings({ canvasBaseUrl: base, canvasConnected: true, canvasFeed: false, canvasUserName: name, demoMode: false });
       await this.syncCanvas();
       this.say(`Connected to Canvas as ${name}.`);
       return { ok: true };
@@ -143,7 +154,7 @@ export class Controller {
   }
 
   async useDemo() {
-    this.store.updateSettings({ demoMode: true, canvasConnected: false, canvasUserName: 'Demo Student' });
+    this.store.updateSettings({ demoMode: true, canvasConnected: false, canvasFeed: false, canvasUserName: 'Demo Student' });
     await this.syncCanvas();
     this.say('Demo mode: sample Berkeley assignments loaded.');
   }
@@ -159,7 +170,9 @@ export class Controller {
       tasks = demoTasks(new Date(this.now()));
     } else if (this.settings.canvasConnected && this.store.canvasToken) {
       try {
-        tasks = await new CanvasClient(this.settings.canvasBaseUrl, this.store.canvasToken).upcomingTasks();
+        tasks = this.settings.canvasFeed
+          ? await feedTasks(this.store.canvasToken, this.settings.timezone)
+          : await new CanvasClient(this.settings.canvasBaseUrl, this.store.canvasToken).upcomingTasks();
         this.syncError = null;
       } catch (err) {
         this.syncError = (err as Error).message;

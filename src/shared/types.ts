@@ -58,6 +58,7 @@ export interface Rules {
 export interface Settings {
   canvasBaseUrl: string;
   canvasConnected: boolean;
+  canvasFeed: boolean; // connected through the calendar feed link instead of a token
   canvasUserName: string | null;
   demoMode: boolean;
   serverUrl: string;

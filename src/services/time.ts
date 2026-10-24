@@ -44,6 +44,12 @@ function offsetMs(date: Date, timeZone: string): number {
   return asUtc - Math.floor(date.getTime() / 1000) * 1000;
 }
 
+/** The instant when the wall clock in `timeZone` shows the given date and time. */
+export function fromZoned(year: number, month: number, day: number, hour: number, minute: number, timeZone: string): Date {
+  const guess = Date.UTC(year, month - 1, day, hour, minute, 0);
+  return new Date(guess - offsetMs(new Date(guess), timeZone));
+}
+
 /** The instant when the wall clock in `timeZone` shows `dayOffset` days after `now`, at hour:minute. */
 export function atLocalTime(now: Date, timeZone: string, hour: number, minute: number, dayOffset = 0): Date {
   const z = zonedParts(now, timeZone);

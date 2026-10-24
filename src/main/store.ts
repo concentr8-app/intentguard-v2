@@ -26,6 +26,7 @@ export function defaultSettings(): Settings {
   return {
     canvasBaseUrl: BERKELEY_CANVAS,
     canvasConnected: false,
+    canvasFeed: false,
     canvasUserName: null,
     demoMode: false,
     serverUrl: '',
@@ -139,7 +140,7 @@ export class Store {
   /** Forget the Canvas connection (and demo mode). */
   disconnectCanvas() {
     this.setSecret('canvasToken', null);
-    this.data.settings = { ...this.data.settings, canvasConnected: false, canvasUserName: null, demoMode: false };
+    this.data.settings = { ...this.data.settings, canvasConnected: false, canvasFeed: false, canvasUserName: null, demoMode: false };
     this.data.tasks = [];
     this.data.lastSync = null;
     this.save();

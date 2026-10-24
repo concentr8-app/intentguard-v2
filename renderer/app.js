@@ -255,9 +255,11 @@ function openSettings() {
   const s = state.settings;
   $('canvas-status').textContent = s.demoMode
     ? 'Using sample assignments.'
-    : s.canvasConnected
-      ? `Connected as ${s.canvasUserName || 'you'} (${hostOf(s.canvasBaseUrl)}).`
-      : 'Not connected.';
+    : s.canvasConnected && s.canvasFeed
+      ? 'Connected through your calendar feed. Submitted work still shows until its due date passes.'
+      : s.canvasConnected
+        ? `Connected as ${s.canvasUserName || 'you'} (${hostOf(s.canvasBaseUrl)}).`
+        : 'Not connected.';
   $('server-url').value = s.serverUrl || '';
   $('server-key').value = '';
   $('server-key').placeholder = s.serverConnected ? 'Saved. Paste a new key to replace it.' : 'The APP_API_KEY you set on Replit';
