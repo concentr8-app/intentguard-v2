@@ -3,7 +3,8 @@
 
 import type { Activity, ActivityContext, DriftEvent, FocusSession, Rules, SessionSummary, Verdict } from '../shared/types';
 import type { Platform } from './platform';
-import { classify, SCRIPTABLE_BROWSERS, TITLE_ONLY_BROWSERS } from './rules';
+import { SCRIPTABLE_BROWSERS, TITLE_ONLY_BROWSERS } from './rules';
+import { CachedSemanticClassifier, classifyWithSemantic, type RelevanceLog } from './semantic';
 
 export interface FocusDeps {
   platform: Platform;
@@ -12,6 +13,8 @@ export interface FocusDeps {
   rules(): Rules;
   graceSeconds(): number;
   fallbackUrl(): string | null; // e.g. the Canvas dashboard
+  semantic?: CachedSemanticClassifier;
+  relevanceLog?: RelevanceLog;
   now?: () => number;
 }
 
@@ -48,6 +51,7 @@ export class FocusEngine {
     this.lastBlocked.clear();
     this.lastRelevantUrl = null;
     this.activityContext = null;
+    this.deps.semantic?.clear();
     this.deps.onChange();
     return this.session;
   }
@@ -69,6 +73,7 @@ export class FocusEngine {
     this.drift = null;
     this.activityContext = null;
     this.verdict = null;
+    this.deps.semantic?.clear();
     this.deps.onChange();
     return summary;
   }
@@ -122,7 +127,13 @@ export class FocusEngine {
       return null;
     }
     this.activityContext = { activity, intent: session.task };
-    const verdict = classify(this.activityContext, this.deps.rules());
+    const verdict = await classifyWithSemantic(
+      this.activityContext,
+      this.deps.rules(),
+      this.deps.semantic,
+      this.deps.relevanceLog,
+    );
+    if (this.session !== session) return null; // stopped while semantic classification was pending
     this.verdict = verdict;
 
     const onBreak = session.breakUntil !== null && now < Date.parse(session.breakUntil);

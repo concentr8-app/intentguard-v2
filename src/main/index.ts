@@ -3,7 +3,9 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeImage, Notification, safeStorage, shell, Tray } from 'electron';
 import path from 'node:path';
 import type { AppState, Settings } from '../shared/types';
+import { createGroqSemanticProvider } from '../services/groq';
 import { createMacPlatform, createNullPlatform } from '../services/platform';
+import { CachedSemanticClassifier } from '../services/semantic';
 import { Controller } from './controller';
 import { Store } from './store';
 
@@ -137,7 +139,9 @@ app.whenReady().then(() => {
     decrypt: (cipher) => safeStorage.decryptString(Buffer.from(cipher, 'base64')),
   });
   const platform = process.platform === 'darwin' ? createMacPlatform() : createNullPlatform();
-  controller = new Controller({ store, platform, notify, emit, showWindow });
+  const relevanceLog = (message: string) => console.info(message);
+  const semantic = new CachedSemanticClassifier(createGroqSemanticProvider(), relevanceLog);
+  controller = new Controller({ store, platform, notify, emit, showWindow, semantic, relevanceLog });
   registerIpc(controller);
 
   tray = new Tray(nativeImage.createEmpty());

@@ -36,6 +36,7 @@ The initial target is Berkeley students with ADHD or executive-function challeng
 - Electron `safeStorage` for bCourses and call-server secrets.
 - Direct bCourses/Canvas integration with a calendar-feed fallback.
 - Deterministic local classifier and focus engine.
+- Provider-agnostic semantic classifier for otherwise-neutral activity, with Groq as the first optional provider.
 - Node call server under `server/`.
 - Telnyx or Twilio calling providers.
 - Optional ElevenLabs voice through Telnyx.
@@ -62,12 +63,13 @@ Do not rewrite working components for architectural purity during the hackathon.
 - `ActivityContext` contains the observed `activity` and current `intent`.
 - Scriptable-browser activity includes the page title and complete URL, including its query string.
 - The deterministic classifier still relies mostly on domain and app rules.
-- It receives the intent but does not yet semantically judge whether the activity is relevant to it.
-- Generic “productive” resources can therefore be labeled focus while being unrelated.
+- Deterministic focus and distraction verdicts never call a model.
+- Neutral activity may use a session-local cached semantic provider when configured.
+- Semantic results become focus/distraction only at confidence `0.85` or higher; failures, uncertainty, and lower confidence remain neutral.
 - An NFL Google search during Math homework should not be on-task.
 - GitHub should not be universally on-task merely because its domain is often useful.
 - Prefer conservative `neutral` over confidently wrong classification.
-- Use Claude later only for genuinely ambiguous semantic relevance, after deterministic checks.
+- Keep semantic providers replaceable; do not couple the focus engine to Groq, Claude, Gemini, OpenRouter, or a local model.
 
 ## Product principles
 

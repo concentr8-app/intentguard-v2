@@ -20,7 +20,7 @@ test('activity view exposes the page title and complete URL', () => {
       { kind: 'neutral' },
     ),
     {
-      label: 'On screen',
+      label: 'Unclear',
       app: 'Google Chrome',
       title: 'nfl scores - Google Search',
       url,

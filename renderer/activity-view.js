@@ -3,7 +3,7 @@
 
   function describeActivity(activity, verdict) {
     return {
-      label: verdict?.kind === 'distraction' ? 'Off track' : verdict?.kind === 'focus' ? 'On task' : 'On screen',
+      label: verdict?.kind === 'distraction' ? 'Off track' : verdict?.kind === 'focus' ? 'On task' : 'Unclear',
       app: activity.app,
       title: activity.title || null,
       url: activity.url || null,

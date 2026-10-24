@@ -13,12 +13,13 @@ Built at Cal Hacks 13.0.
 - Start a focus session from any typed intent; bCourses is optional.
 - Sync bCourses assignments through the Canvas API or calendar-feed fallback.
 - Observe the foreground Mac app and, for scriptable browsers, the active page title and full URL including query parameters.
+- Optionally classify otherwise-neutral activity with a cached, provider-agnostic semantic check.
 - Warn after clear drift, allow a grace period, then redirect or close the distraction and restore the last relevant page.
 - Pause interventions during an intentional break.
 - Show an in-session intervention log and store ended-session summaries locally.
 - Connect to the current call server for scheduled or on-demand check-ins.
 
-The classifier is currently deterministic and rule-based. It receives the current intent, but it does not yet understand semantic relevance—for example, whether a particular Google search or GitHub page actually helps with the stated task. See [`docs/STATUS.md`](docs/STATUS.md).
+Deterministic rules always run first. Only neutral activity can use the optional semantic classifier, and low-confidence or failed requests remain neutral. See [`docs/STATUS.md`](docs/STATUS.md).
 
 ## How the pieces fit
 
@@ -56,6 +57,18 @@ In bCourses, go to **Account → Settings → New access token**, name it Concen
 
 The token is stored with Electron `safeStorage` and the macOS keychain.
 
+### Optional semantic relevance
+
+The desktop app works normally without an AI key. To classify neutral activity through Groq, export the key before starting Electron:
+
+```sh
+export GROQ_API_KEY="your-groq-key"
+export GROQ_MODEL="openai/gpt-oss-20b" # optional; this is the default
+npm start
+```
+
+The semantic layer sends only the current intent, foreground app, page title, and compact URL/search context. It keeps an in-memory cache for the current focus session. Logs distinguish deterministic decisions, semantic API calls, cache hits, and safe fallbacks without printing the key.
+
 ### Connect the morning call (optional)
 
 Deploy the call server using [`server/README.md`](server/README.md). In the app, open **Settings → Morning call**, enter the server URL and matching `APP_API_KEY`, and add the phone number. **Call me now** tests the connection. Without a call server, the app can still show its local morning notification.
@@ -84,7 +97,7 @@ Open `<server-url>/api/health` to see the active carrier and whether required co
 | Chrome, Arc, Brave, Edge, Safari | Full URL and title observed; known distractions can be redirected or closed |
 | Firefox, Zen | Window title observed; known distraction tabs can be closed with ⌘W |
 | Blocked app such as Discord or Steam | App hidden after warning/grace behavior |
-| Allowed domains/apps | Treated as focus and eligible to become the restore target |
+| Allowed domains/apps | Never blocked by a conflicting rule; focus still requires direct or semantic relevance |
 | Intentional break | Blocking and warnings pause |
 
 Rules, grace time, and session length are editable in Settings. The allowed list is a current heuristic, not proof that a page is relevant to the active intent.
@@ -92,7 +105,7 @@ Rules, grace time, and session length are editable in Settings. The allowed list
 ## Limits to know
 
 - Observation and intervention are currently macOS-specific.
-- Semantic task relevance is not solved yet.
+- Semantic relevance is optional, provider-dependent, and deliberately conservative.
 - The call server must be awake at call time; sleeping deployments need an external request to `/cron/morning?key=…`.
 - Provider trials and account verification can limit outbound calls.
 - Berkeley bCourses tokens expire after at most 90 days.
@@ -107,6 +120,8 @@ Rules, grace time, and session length are editable in Settings. The allowed list
 | `src/main/store.ts` | Local JSON settings/history and encrypted secrets |
 | `src/services/focus.ts` | Warning → grace → redirect/restore loop and breaks |
 | `src/services/rules.ts` | Deterministic activity classification |
+| `src/services/semantic.ts` | Provider-independent semantic cache, threshold, and verdict mapping |
+| `src/services/groq.ts` | Optional Groq implementation configured from the desktop environment |
 | `src/services/platform.ts` | macOS foreground/browser observation and control |
 | `src/services/canvas.ts` | bCourses API and calendar-feed fallback |
 | `renderer/` | Plain HTML/CSS/JS interface |

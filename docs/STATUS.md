@@ -4,7 +4,7 @@ This file records fast-changing implementation status. Keep durable product and 
 
 ## Current main
 
-- Code baseline for the conservative task-aware relevance milestone: `dd92834` (`origin/main` on 2026-10-24).
+- Code baseline for the provider-agnostic semantic relevance milestone: `2db33fd` (`origin/main` on 2026-10-24).
 - Use `git log -1 --oneline` to identify the implementation commit layered on this baseline.
 
 ## Proven working
@@ -19,6 +19,9 @@ Supported by current code and the verification recorded below. Observer and inte
 - Conservative deterministic relevance recognizes strong intent overlap in page titles, URL paths, and query values.
 - Direct Canvas assignment, quiz, and discussion resources remain focus.
 - Generic productive sites and apps, including unrelated GitHub pages, remain neutral unless relevance is strong.
+- Otherwise-neutral activity can optionally use Groq through a provider-independent interface.
+- Semantic results use a `0.85` confidence threshold; uncertainty, low confidence, missing configuration, and API failures remain neutral.
+- Semantic classifications are cached by intent plus activity for the current session, preventing repeated calls from unchanged three-second polls.
 - Direct bCourses sync and calendar-feed fallback.
 - Visible warning, grace period, and redirect/restore behavior for configured distractions.
 - Intentional breaks pause interventions and can be ended to resume monitoring.
@@ -31,13 +34,15 @@ Real provider calls still depend on valid credentials, account state, phone veri
 Latest automated verification on Node.js `v26.7.0`:
 
 - `npm run typecheck`: passed.
-- `npm test`: passed, 19/19 tests.
+- `npm test`: passed, 27/27 tests.
 - `npm run build`: passed.
 
 ## Current known limitations
 
-- Deeper semantic task relevance is not solved; deterministic matching cannot understand synonyms or page meaning.
+- Semantic classification requires an optional provider key and network connection; the app remains deterministic without them.
 - Ambiguous activity intentionally remains neutral and is not blocked.
+- Explicit deterministic distractions never reach semantic classification, even if a page title could be educational.
+- The semantic cache is in-memory and session-local; there is no long-term AI memory.
 - An unrelated NFL search during Math homework is neutral rather than assumed on-task or blocked.
 - `STUCK` and `RECOVERING` are not yet fully first-class product states in the current implementation.
 - Observation and intervention are macOS-specific; other platforms use a no-op observer.
@@ -49,11 +54,12 @@ Planning guidance, not an immutable roadmap:
 
 Completed: conservative, task-aware deterministic relevance.
 
-1. Semantic/Claude classification only for genuinely ambiguous activity.
-2. User correction such as “This is actually work.”
-3. Explicit recovery episodes and metrics.
-4. An “I'm stuck” recovery flow.
-5. A richer intervention ladder if time remains.
+Completed: provider-agnostic semantic classification for neutral activity, with optional Groq support.
+
+1. User correction such as “This is actually work.”
+2. Explicit recovery episodes and metrics.
+3. An “I'm stuck” recovery flow.
+4. A richer intervention ladder if time remains.
 
 Plan and ship one bounded milestone at a time. Re-evaluate this sequence using demo reliability and observed user behavior.
 
@@ -80,4 +86,5 @@ Plan and ship one bounded milestone at a time. Re-evaluate this sequence using d
 - The unsigned app may require right-click → **Open** on first launch.
 - The desktop README requires Node.js 20+. This documentation task was verified with Node.js `v26.7.0`; the server declares Node.js 18 or newer.
 - No dependency lockfile, `.nvmrc`, or `.node-version` is present as of the reviewed baseline. Install results can therefore vary across machines and Node versions.
+- Optional semantic classification reads `GROQ_API_KEY` and optional `GROQ_MODEL` from the environment that launches Electron; the default model is `openai/gpt-oss-20b`.
 - Calling requires a reachable server plus provider-specific credentials and account verification. Sleeping deployments can miss scheduled calls.

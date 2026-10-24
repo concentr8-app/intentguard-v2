@@ -11,6 +11,7 @@ import { CallServerClient } from '../services/callServer';
 import { FocusEngine } from '../services/focus';
 import { matchTask } from '../services/match';
 import type { Platform } from '../services/platform';
+import type { CachedSemanticClassifier, RelevanceLog } from '../services/semantic';
 import { localDate, localHHMM, parseSpokenTime } from '../services/time';
 import type { Store } from './store';
 
@@ -20,6 +21,8 @@ export interface ControllerDeps {
   notify(title: string, body: string): void;
   emit(state: AppState): void;
   showWindow(): void;
+  semantic?: CachedSemanticClassifier;
+  relevanceLog?: RelevanceLog;
   now?: () => number;
 }
 
@@ -46,6 +49,8 @@ export class Controller {
       rules: () => this.settings.rules,
       graceSeconds: () => this.settings.graceSeconds,
       fallbackUrl: () => (this.settings.canvasConnected ? this.settings.canvasBaseUrl : null),
+      semantic: deps.semantic,
+      relevanceLog: deps.relevanceLog,
       now: this.now,
     });
   }
