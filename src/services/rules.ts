@@ -1,7 +1,7 @@
 // Decides whether what's on screen is work, neutral, or a distraction.
 // Pure functions only, so they are easy to test (see src/test/rules.test.ts).
 
-import type { ActivityContext, Rules, Verdict } from '../shared/types';
+import type { Activity, ActivityContext, Rules, Verdict } from '../shared/types';
 
 export const DEFAULT_RULES: Rules = {
   blockedDomains: [
@@ -100,6 +100,19 @@ export function isBrowser(app: string): boolean {
   );
 }
 
+function isExplicitBlankUrl(raw: string): boolean {
+  const url = raw.trim().toLowerCase();
+  if (url === 'about:blank' || url === 'about:newtab') return true;
+  return /^(chrome|edge|brave|arc):\/\/(newtab|new-tab-page)\/?(?:[?#].*)?$/.test(url);
+}
+
+/** Exact empty/new-tab cases only; real pages titled "New Tab" are not included. */
+export function isBlankBrowserActivity(activity: Activity): boolean {
+  if (!isBrowser(activity.app)) return false;
+  if (activity.url && isExplicitBlankUrl(activity.url)) return true;
+  return activity.title?.trim().toLowerCase() === 'new tab' && !activity.url?.trim();
+}
+
 /** "https://www.youtube.com/watch?v=1" -> { host: "youtube.com", path: "/watch" } */
 export function parseUrl(raw: string): { host: string; path: string } | null {
   try {
@@ -192,6 +205,8 @@ function isDirectCanvasTask(host: string, path: string): boolean {
 export function classify(context: ActivityContext, rules: Rules): Verdict {
   const { activity } = context;
   const app = activity.app;
+
+  if (isBlankBrowserActivity(activity)) return { kind: 'neutral' };
 
   if (rules.blockedApps.some((a) => a.toLowerCase() === app.toLowerCase())) {
     return { kind: 'distraction', reason: app };

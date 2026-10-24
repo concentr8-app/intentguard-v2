@@ -51,6 +51,37 @@ test('deterministic focus and distraction make zero semantic calls', async () =>
   assert.equal(mock.calls(), 0);
 });
 
+test('blank and new browser tabs stay neutral with zero semantic calls', async () => {
+  const mock = mockProvider({ relevance: 'unrelated', confidence: 1, reason: 'unused' });
+  const semantic = new CachedSemanticClassifier(mock.provider);
+  const cases = [
+    context('Finish Math 185 HW8', 'about:blank', ''),
+    context('Finish Math 185 HW8', 'chrome://newtab', 'New Tab'),
+    context('Finish Math 185 HW8', 'chrome://new-tab-page/', 'New Tab'),
+    context('Finish Math 185 HW8', 'edge://newtab/', 'New Tab', 'Microsoft Edge'),
+    context('Finish Math 185 HW8', null, 'New Tab'),
+  ];
+
+  for (const activity of cases) {
+    assert.equal((await classifyWithSemantic(activity, DEFAULT_RULES, semantic)).kind, 'neutral');
+  }
+  assert.equal(mock.calls(), 0);
+});
+
+test('a real page titled New Tab still reaches semantic classification', async () => {
+  const mock = mockProvider({ relevance: 'uncertain', confidence: 0.9, reason: 'Not enough context' });
+  const semantic = new CachedSemanticClassifier(mock.provider);
+
+  const verdict = await classifyWithSemantic(
+    context('Finish Math 185 HW8', 'https://example.com/new-tab-article', 'New Tab'),
+    DEFAULT_RULES,
+    semantic,
+  );
+
+  assert.equal(verdict.kind, 'neutral');
+  assert.equal(mock.calls(), 1);
+});
+
 test('deterministic neutral invokes semantic classification once, then uses the cache', async () => {
   const mock = mockProvider({ relevance: 'uncertain', confidence: 0.9, reason: 'Not enough context' });
   const logs: string[] = [];

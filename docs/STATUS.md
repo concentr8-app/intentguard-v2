@@ -4,7 +4,7 @@ This file records fast-changing implementation status. Keep durable product and 
 
 ## Current main
 
-- Code baseline for the local development secret-loading milestone: `668244a` (`origin/main` on 2026-10-24).
+- Code baseline for the blank/new-tab neutrality milestone: `618e1a6` (`origin/main` on 2026-10-24).
 - Use `git log -1 --oneline` to identify the implementation commit layered on this baseline.
 
 ## Proven working
@@ -23,6 +23,7 @@ Supported by current code and the verification recorded below. Observer and inte
 - Semantic results use a `0.85` confidence threshold; uncertainty, low confidence, missing configuration, and API failures remain neutral.
 - Semantic classifications are cached by intent plus activity for the current session, preventing repeated calls from unchanged three-second polls.
 - Unpackaged Electron development loads an ignored root `.env` without overriding existing shell variables.
+- Explicit blank/new-tab browser activity remains neutral and bypasses semantic requests.
 - Direct bCourses sync and calendar-feed fallback.
 - Visible warning, grace period, and redirect/restore behavior for configured distractions.
 - Intentional breaks pause interventions and can be ended to resume monitoring.
@@ -35,7 +36,7 @@ Real provider calls still depend on valid credentials, account state, phone veri
 Latest automated verification on Node.js `v26.7.0`:
 
 - `npm run typecheck`: passed.
-- `npm test`: passed, 28/28 tests.
+- `npm test`: passed, 30/30 tests.
 - `npm run build`: passed.
 
 ## Current known limitations

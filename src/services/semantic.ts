@@ -1,5 +1,5 @@
 import type { ActivityContext, Rules, Verdict } from '../shared/types';
-import { classify as classifyDeterministic } from './rules';
+import { classify as classifyDeterministic, isBlankBrowserActivity } from './rules';
 
 export type SemanticRelevance = 'relevant' | 'unrelated' | 'uncertain';
 
@@ -77,6 +77,10 @@ export async function classifyWithSemantic(
   log: RelevanceLog = () => {},
 ): Promise<Verdict> {
   const deterministic = classifyDeterministic(context, rules);
+  if (isBlankBrowserActivity(context.activity)) {
+    log('[relevance] deterministic neutral blank tab; semantic skipped');
+    return deterministic;
+  }
   if (deterministic.kind !== 'neutral') {
     log(`[relevance] deterministic ${deterministic.kind}`);
     return deterministic;
