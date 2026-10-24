@@ -341,7 +341,8 @@ async function route(req, res) {
     if (p === '/api/today' && m === 'GET') return send(res, 200, todayResponse());
     if ((p === '/api/call-now' && m === 'POST') || (p === '/cron/morning' && m === 'GET')) {
       const callSid = await placeCall(req);
-      if (p === '/cron/morning') data.lastAutoCallDate = localDate();
+      // A cron hit at/after call time counts as today's morning call; a test hit at 2 a.m. doesn't.
+      if (p === '/cron/morning' && localHHMM() >= (data.settings.callTime || '08:00')) data.lastAutoCallDate = localDate();
       save();
       return send(res, 200, { ok: true, callSid });
     }
