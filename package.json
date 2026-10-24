@@ -8,7 +8,7 @@
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",
-    "start": "tsc && electron .",
+    "start": "tsc || echo 'TypeScript reported errors above; starting anyway'; electron .",
     "test": "tsc && node --test dist/test/*.test.js"
   },
   "license": "MIT",
