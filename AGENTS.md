@@ -36,7 +36,7 @@ The initial target is Berkeley students with ADHD or executive-function challeng
 - Electron `safeStorage` for bCourses and call-server secrets.
 - Direct bCourses/Canvas integration with a calendar-feed fallback.
 - Deterministic local classifier and focus engine.
-- Provider-agnostic semantic classifier for otherwise-neutral activity, with Groq as the first optional provider.
+- Provider-agnostic semantic classifier for otherwise-neutral activity, with optional Claude (preferred when configured) and Groq providers.
 - Node call server under `server/`.
 - Telnyx or Twilio calling providers.
 - Optional ElevenLabs voice through Telnyx.

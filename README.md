@@ -63,9 +63,11 @@ The desktop app works normally without an AI key. For local development, copy th
 
 ```sh
 cp .env.example .env
-# Edit .env and set GROQ_API_KEY. GROQ_MODEL is optional.
+# Edit .env and set ANTHROPIC_API_KEY (Claude) or GROQ_API_KEY. Model names are optional.
 npm start
 ```
+
+With both keys present Claude is used; set `SEMANTIC_PROVIDER=claude`, `groq` or `none` to choose explicitly. The default Claude model is `claude-haiku-5-5`. The app logs the active provider and model at startup.
 
 `.env` is local-only and must never be committed. Variables already supplied by the shell take precedence over values in the file. User-entered bCourses and call-server secrets continue to use Electron `safeStorage` rather than `.env`.
 
@@ -123,6 +125,9 @@ Rules, grace time, and session length are editable in Settings. The allowed list
 | `src/services/focus.ts` | Warning → grace → redirect/restore loop and breaks |
 | `src/services/rules.ts` | Deterministic activity classification |
 | `src/services/semantic.ts` | Provider-independent semantic cache, threshold, and verdict mapping |
+| `src/services/semanticPrompt.ts` | Shared prompt, answer schema, and validation for every semantic provider |
+| `src/services/providers.ts` | Chooses Claude, Groq, or no provider from the environment |
+| `src/services/claude.ts` | Optional Claude implementation (Messages API with structured output) |
 | `src/services/groq.ts` | Optional Groq implementation configured from the desktop environment |
 | `src/services/platform.ts` | macOS foreground/browser observation and control |
 | `src/services/canvas.ts` | bCourses API and calendar-feed fallback |

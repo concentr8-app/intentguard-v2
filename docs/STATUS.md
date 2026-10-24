@@ -19,7 +19,8 @@ Supported by current code and the verification recorded below. Observer and inte
 - Conservative deterministic relevance recognizes strong intent overlap in page titles, URL paths, and query values.
 - Direct Canvas assignment, quiz, and discussion resources remain focus.
 - Generic productive sites and apps, including unrelated GitHub pages, remain neutral unless relevance is strong.
-- Otherwise-neutral activity can optionally use Groq through a provider-independent interface.
+- Otherwise-neutral activity can optionally use Claude or Groq through a provider-independent interface. Claude is preferred when `ANTHROPIC_API_KEY` is set; `SEMANTIC_PROVIDER` overrides the choice. Both providers share one prompt, schema, and validator.
+- The Claude provider is covered by automated tests with a fake Messages API (request shape, URL-parameter minimization, refusal/truncation/error fallbacks). A live call with a real key has not been recorded here yet.
 - Semantic results use a `0.85` confidence threshold; uncertainty, low confidence, missing configuration, and API failures remain neutral.
 - Semantic classifications are cached by intent plus activity for the current session, preventing repeated calls from unchanged three-second polls.
 - Unpackaged Electron development loads an ignored root `.env` without overriding existing shell variables.
@@ -55,7 +56,7 @@ Planning guidance, not an immutable roadmap:
 
 Completed: conservative, task-aware deterministic relevance.
 
-Completed: provider-agnostic semantic classification for neutral activity, with optional Groq support.
+Completed: provider-agnostic semantic classification for neutral activity, with optional Claude and Groq support.
 
 1. User correction such as “This is actually work.”
 2. Explicit recovery episodes and metrics.
@@ -87,5 +88,5 @@ Plan and ship one bounded milestone at a time. Re-evaluate this sequence using d
 - The unsigned app may require right-click → **Open** on first launch.
 - The desktop README requires Node.js 20+. This documentation task was verified with Node.js `v26.7.0`; the server declares Node.js 18 or newer.
 - No dependency lockfile, `.nvmrc`, or `.node-version` is present as of the reviewed baseline. Install results can therefore vary across machines and Node versions.
-- Local development can read `GROQ_API_KEY` and optional `GROQ_MODEL` from the ignored root `.env`; shell variables take precedence. The default model is `openai/gpt-oss-20b`.
+- Local development can read `ANTHROPIC_API_KEY`, `GROQ_API_KEY`, optional `ANTHROPIC_MODEL`/`GROQ_MODEL`, and optional `SEMANTIC_PROVIDER` from the ignored root `.env`; shell variables take precedence. Default models are `claude-haiku-5-5` and `openai/gpt-oss-20b`.
 - Calling requires a reachable server plus provider-specific credentials and account verification. Sleeping deployments can miss scheduled calls.
