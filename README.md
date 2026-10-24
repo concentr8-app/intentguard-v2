@@ -11,14 +11,14 @@ Built at Cal Hacks 13.0.
 ## How the pieces fit
 
 ```
-bCourses ──sync──▶ Mac app ──tasks──▶ Call server (Replit) ──Twilio──▶ your phone
+bCourses ──sync──▶ Mac app ──tasks──▶ Call server (Replit) ──Telnyx──▶ your phone
                      ▲                        │
                      └──── your answer ───────┘
                    "the CS 188 project, 9:30" ─▶ focus session starts at 9:30
 ```
 
 - **Mac app** (`src/`, `renderer/`): Electron. Syncs Canvas, shows today's plan, watches the front window during a session, nudges and blocks.
-- **Call server** (`server/`): tiny Node server. Stores tasks, places the morning call through Twilio, saves what you said. Its API is in [`docs/call-server-api.md`](docs/call-server-api.md).
+- **Call server** (`server/`): tiny Node server. Stores tasks, places the morning call (Telnyx, or Twilio), saves what you said. Its API is in [`docs/call-server-api.md`](docs/call-server-api.md).
 
 ## Run the Mac app
 
@@ -45,6 +45,14 @@ Deploy the call server (see [`server/README.md`](server/README.md)), then in the
 
 Without a call server the app still asks you at 8:00 with a notification.
 
+### Phone carrier and voice
+
+The server calls through **Telnyx** (TeXML) when `TELNYX_API_KEY` is set, otherwise through Twilio. Twilio now needs an approved Business profile to call +1 numbers (error 21216); a Telnyx trial can call your verified number right away. The secrets, step by step: [`server/README.md`](server/README.md).
+
+Voice: Amazon Polly by default. For a more natural voice use ElevenLabs through Telnyx (paid ElevenLabs plan needed): set `CALL_VOICE=ElevenLabs.Default.<voice_id>` and `TELNYX_VOICE_KEY_REF=<name of your Telnyx integration secret>`.
+
+Check the server: open `<server-url>/api/health`. It shows the active carrier and which secrets are set (never their values).
+
 ## Demo in two minutes
 
 1. Open the app, **Try with sample assignments**.
@@ -63,6 +71,13 @@ Without a call server the app still asks you at 8:00 with a notification.
 | Allowed sites (bCourses, Gradescope, Ed, Docs …) | always fine, and remembered as your work tab |
 
 Change the lists, the warning time (0 = no warning) and the session length in Settings. **Take a 5-min break** pauses blocking.
+
+## Limits to know
+
+- The call server must be awake at 8:00 (Replit Reserved VM, or an external cron that opens `/cron/morning?key=…`).
+- A Telnyx trial account calls only your verified number (10 calls a day).
+- bCourses tokens last at most 90 days at Berkeley.
+- The app is unsigned: right-click → Open the first time.
 
 ## Code map
 
