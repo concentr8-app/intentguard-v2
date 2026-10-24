@@ -117,7 +117,8 @@ const PROVIDER = (env.CALL_PROVIDER || (env.TELNYX_API_KEY ? 'telnyx' : 'twilio'
 const VOICE = env.CALL_VOICE || env.TWILIO_VOICE || 'Polly.Joanna-Neural';
 
 function say(text) {
-  return `<Say voice="${xml(VOICE)}">${xml(text)}</Say>`;
+  const ref = env.TELNYX_VOICE_KEY_REF ? ` api_key_ref="${xml(env.TELNYX_VOICE_KEY_REF)}"` : '';
+  return `<Say voice="${xml(VOICE)}"${ref}>${xml(text)}</Say>`;
 }
 
 function gather(step, attempt, prompt) {

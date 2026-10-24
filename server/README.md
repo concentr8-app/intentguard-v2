@@ -53,7 +53,9 @@ The server finds its own public address on Replit. Elsewhere, set `PUBLIC_URL`.
 | `PORT` | `3000` | |
 | `PUBLIC_URL` | auto on Replit | base URL Twilio calls back |
 | `DATA_FILE` | `server/data.json` | where tasks and answers are kept |
-| `TWILIO_VOICE` | `Polly.Joanna-Neural` | any Twilio `<Say>` voice |
+| `CALL_VOICE` | `Polly.Joanna-Neural` | the `<Say>` voice. Telnyx + ElevenLabs: `ElevenLabs.Default.<voice_id>` |
+| `TELNYX_VOICE_KEY_REF` | none | Telnyx integration-secret name holding your ElevenLabs key (needs a paid ElevenLabs plan) |
+| `TWILIO_VOICE` | | old name of `CALL_VOICE` |
 | `VALIDATE_TWILIO_SIGNATURE` | off | set `true` to reject webhooks not signed by Twilio |
 | `ANTHROPIC_MODEL` | `claude-haiku-5-5` | model for the optional natural replies |
 
