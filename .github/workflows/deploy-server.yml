@@ -1,0 +1,23 @@
+# Deploys the call server (server/) to Azure App Service on every push to main that touches server/.
+# One-time setup: docs/AZURE-SETUP.md (secret AZURE_WEBAPP_PUBLISH_PROFILE, variable AZURE_WEBAPP_NAME).
+name: Deploy call server
+on:
+  push:
+    branches: [main]
+    paths: ['server/**', '.github/workflows/deploy-server.yml']
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run server tests
+        run: cd server && npm test
+      - uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ vars.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: server
