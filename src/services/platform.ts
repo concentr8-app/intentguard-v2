@@ -41,8 +41,18 @@ export function canonicalApp(name: string): string {
 const isSafari = (app: string) => app === 'Safari';
 const isChromium = (app: string) => (SCRIPTABLE_BROWSERS as readonly string[]).includes(app) && !isSafari(app);
 const isTitleOnly = (app: string) => (TITLE_ONLY_BROWSERS as readonly string[]).includes(app);
+const BROWSER_DETAILS_SEPARATOR = '\x1e';
 
-export function createMacPlatform(): Platform {
+function browserDetails(output: string): { url: string | null; title: string | null } {
+  const separator = output.indexOf(BROWSER_DETAILS_SEPARATOR);
+  if (separator === -1) return { url: output || null, title: null };
+  return {
+    url: output.slice(0, separator) || null,
+    title: output.slice(separator + 1) || null,
+  };
+}
+
+export function createMacPlatform(runScript = osascript): Platform {
   let lastProcessName = '';
 
   return {
@@ -51,7 +61,7 @@ export function createMacPlatform(): Platform {
     async activity() {
       let processName: string;
       try {
-        processName = await osascript([
+        processName = await runScript([
           'tell application "System Events" to get name of first application process whose frontmost is true',
         ]);
       } catch {
@@ -63,19 +73,29 @@ export function createMacPlatform(): Platform {
       let title: string | null = null;
       try {
         if (isChromium(app)) {
-          url = await osascript([
+          const details = await runScript([
             `tell application ${asString(app)}`,
-            'if (count of windows) > 0 then return URL of active tab of front window',
+            'if (count of windows) > 0 then',
+            'set activeUrl to URL of active tab of front window',
+            'set activeTitle to title of active tab of front window',
+            'return activeUrl & (ASCII character 30) & activeTitle',
+            'end if',
             'end tell',
           ]);
+          ({ url, title } = browserDetails(details));
         } else if (isSafari(app)) {
-          url = await osascript([
+          const details = await runScript([
             'tell application "Safari"',
-            'if (count of windows) > 0 then return URL of current tab of front window',
+            'if (count of windows) > 0 then',
+            'set activeUrl to URL of current tab of front window',
+            'set activeTitle to name of current tab of front window',
+            'return activeUrl & (ASCII character 30) & activeTitle',
+            'end if',
             'end tell',
           ]);
+          ({ url, title } = browserDetails(details));
         } else if (isTitleOnly(app)) {
-          title = await osascript([
+          title = await runScript([
             `tell application "System Events" to tell process ${asString(processName)}`,
             'if (count of windows) > 0 then return name of front window',
             'end tell',
@@ -90,9 +110,9 @@ export function createMacPlatform(): Platform {
     async redirect(app, url) {
       try {
         if (isChromium(app)) {
-          await osascript([`tell application ${asString(app)} to set URL of active tab of front window to ${asString(url)}`]);
+          await runScript([`tell application ${asString(app)} to set URL of active tab of front window to ${asString(url)}`]);
         } else if (isSafari(app)) {
-          await osascript([`tell application "Safari" to set URL of current tab of front window to ${asString(url)}`]);
+          await runScript([`tell application "Safari" to set URL of current tab of front window to ${asString(url)}`]);
         } else return false;
         return true;
       } catch {
@@ -103,16 +123,16 @@ export function createMacPlatform(): Platform {
     async closeTab(app) {
       try {
         if (isChromium(app)) {
-          await osascript([`tell application ${asString(app)} to close active tab of front window`]);
+          await runScript([`tell application ${asString(app)} to close active tab of front window`]);
         } else if (isSafari(app)) {
-          await osascript(['tell application "Safari" to close current tab of front window']);
+          await runScript(['tell application "Safari" to close current tab of front window']);
         } else if (isTitleOnly(app)) {
           // Firefox has no tab scripting: press ⌘W, but only if it is still in front.
-          const front = await osascript([
+          const front = await runScript([
             'tell application "System Events" to get name of first application process whose frontmost is true',
           ]);
           if (canonicalApp(front) !== app) return false;
-          await osascript(['tell application "System Events" to keystroke "w" using command down']);
+          await runScript(['tell application "System Events" to keystroke "w" using command down']);
         } else return false;
         return true;
       } catch {
@@ -123,7 +143,7 @@ export function createMacPlatform(): Platform {
     async hideApp(app) {
       const processName = canonicalApp(lastProcessName) === app ? lastProcessName : app;
       try {
-        await osascript([`tell application "System Events" to set visible of process ${asString(processName)} to false`]);
+        await runScript([`tell application "System Events" to set visible of process ${asString(processName)} to false`]);
         return true;
       } catch {
         return false;

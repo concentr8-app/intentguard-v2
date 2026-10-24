@@ -11,7 +11,7 @@ const STOP = new Set([
 function tokens(text: string): string[] {
   return text
     .toLowerCase()
-    .replace(/([a-z])(\d)/g, '$1 $2') // "cs188" -> "cs 188"
+    .replace(/\b([a-z]{1,4})(\d{2,3})\b/g, '$1 $2') // "cs188" -> "cs 188", without turning "Concentr8" into task 8
     .split(/[^a-z0-9]+/)
     .filter((t) => t && !STOP.has(t));
 }

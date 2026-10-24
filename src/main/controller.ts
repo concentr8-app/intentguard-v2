@@ -110,6 +110,7 @@ export class Controller {
       today: this.today,
       session: this.focus.session,
       activity: this.focus.activity,
+      activityContext: this.focus.activityContext,
       verdict: this.focus.verdict,
       history: this.store.history,
       platformSupported: this.deps.platform.supported,

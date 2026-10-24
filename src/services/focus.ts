@@ -1,7 +1,7 @@
 // The execution-recovery loop: during a focus session, look at the screen every few seconds,
 // nudge on drift, block if the drift continues, and send the student back to the last relevant tab.
 
-import type { Activity, DriftEvent, FocusSession, Rules, SessionSummary, Verdict } from '../shared/types';
+import type { Activity, ActivityContext, DriftEvent, FocusSession, Rules, SessionSummary, Verdict } from '../shared/types';
 import type { Platform } from './platform';
 import { classify, SCRIPTABLE_BROWSERS, TITLE_ONLY_BROWSERS } from './rules';
 
@@ -21,6 +21,7 @@ const REPEAT_WINDOW_MS = 2 * 60_000;
 export class FocusEngine {
   session: FocusSession | null = null;
   activity: Activity | null = null;
+  activityContext: ActivityContext | null = null;
   verdict: Verdict | null = null;
 
   private drift: { target: string; since: number } | null = null;
@@ -46,6 +47,7 @@ export class FocusEngine {
     this.drift = null;
     this.lastBlocked.clear();
     this.lastRelevantUrl = null;
+    this.activityContext = null;
     this.deps.onChange();
     return this.session;
   }
@@ -65,6 +67,7 @@ export class FocusEngine {
     };
     this.session = null;
     this.drift = null;
+    this.activityContext = null;
     this.verdict = null;
     this.deps.onChange();
     return summary;
@@ -113,11 +116,13 @@ export class FocusEngine {
     if (this.session !== session) return null; // stopped while we were looking
     this.activity = activity;
     if (!activity) {
+      this.activityContext = null;
       this.verdict = null;
       this.deps.onChange();
       return null;
     }
-    const verdict = classify(activity, this.deps.rules());
+    this.activityContext = { activity, intent: session.task };
+    const verdict = classify(this.activityContext, this.deps.rules());
     this.verdict = verdict;
 
     const onBreak = session.breakUntil !== null && now < Date.parse(session.breakUntil);

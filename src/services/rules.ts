@@ -1,7 +1,7 @@
 // Decides whether what's on screen is work, neutral, or a distraction.
 // Pure functions only, so they are easy to test (see src/test/rules.test.ts).
 
-import type { Activity, Rules, Verdict } from '../shared/types';
+import type { ActivityContext, Rules, Verdict } from '../shared/types';
 
 export const DEFAULT_RULES: Rules = {
   blockedDomains: [
@@ -110,7 +110,9 @@ function titleKeyword(rule: string): string {
   return parts.length > 1 ? parts[parts.length - 2] : parts[0];
 }
 
-export function classify(activity: Activity, rules: Rules): Verdict {
+export function classify(context: ActivityContext, rules: Rules): Verdict {
+  // Deterministic rules intentionally ignore intent for now; future ambiguous classification receives it here.
+  const { activity } = context;
   const app = activity.app;
 
   if (rules.blockedApps.some((a) => a.toLowerCase() === app.toLowerCase())) {

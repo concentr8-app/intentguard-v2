@@ -25,8 +25,14 @@ export interface TodayIntent {
 export interface Activity {
   app: string; // frontmost application name, e.g. "Google Chrome"
   url: string | null; // active tab URL for browsers that expose it
-  title: string | null; // window title (used for Firefox, which has no URL scripting)
+  title: string | null; // active page title, or the window title for browsers without URL scripting
   at: number; // epoch ms
+}
+
+/** Everything a classifier needs to judge observed activity relative to the active commitment. */
+export interface ActivityContext {
+  activity: Activity;
+  intent: string;
 }
 
 export type Verdict =
@@ -89,6 +95,7 @@ export interface AppState {
   today: TodayIntent;
   session: FocusSession | null;
   activity: Activity | null;
+  activityContext: ActivityContext | null;
   verdict: Verdict | null;
   history: SessionSummary[];
   platformSupported: boolean; // monitoring/blocking only works on macOS

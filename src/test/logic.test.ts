@@ -8,10 +8,11 @@ import { localDate, localHHMM, parseSpokenTime } from '../services/time';
 import { matchTask } from '../services/match';
 import { isFeedUrl, nextLink, normalizePlannerItems, parseIcsTasks } from '../services/canvas';
 import { FocusEngine } from '../services/focus';
-import type { Platform } from '../services/platform';
+import { createMacPlatform, type Platform } from '../services/platform';
 
 const TZ = 'America/Los_Angeles';
 const act = (app: string, url: string | null = null, title: string | null = null): Activity => ({ app, url, title, at: 0 });
+const context = (activity: Activity, intent = 'Finish Math 185 HW8') => ({ activity, intent });
 
 test('domain rules match subdomains and path prefixes', () => {
   assert.ok(matchesDomainRule('youtube.com', 'm.youtube.com', '/'));
@@ -21,16 +22,26 @@ test('domain rules match subdomains and path prefixes', () => {
 });
 
 test('classify: distraction, focus, neutral', () => {
-  assert.equal(classify(act('Google Chrome', 'https://www.youtube.com/watch?v=1'), DEFAULT_RULES).kind, 'distraction');
-  assert.equal(classify(act('Google Chrome', 'https://bcourses.berkeley.edu/courses/1'), DEFAULT_RULES).kind, 'focus');
-  assert.equal(classify(act('Safari', 'https://en.wikipedia.org/wiki/Markov_chain'), DEFAULT_RULES).kind, 'neutral');
-  assert.equal(classify(act('Discord'), DEFAULT_RULES).kind, 'distraction');
-  assert.equal(classify(act('Visual Studio Code'), DEFAULT_RULES).kind, 'focus');
+  assert.equal(classify(context(act('Google Chrome', 'https://www.youtube.com/watch?v=1')), DEFAULT_RULES).kind, 'distraction');
+  assert.equal(classify(context(act('Google Chrome', 'https://bcourses.berkeley.edu/courses/1')), DEFAULT_RULES).kind, 'focus');
+  assert.equal(classify(context(act('Safari', 'https://en.wikipedia.org/wiki/Markov_chain')), DEFAULT_RULES).kind, 'neutral');
+  assert.equal(classify(context(act('Discord')), DEFAULT_RULES).kind, 'distraction');
+  assert.equal(classify(context(act('Visual Studio Code')), DEFAULT_RULES).kind, 'focus');
 });
 
 test('classify: Firefox via window title', () => {
-  assert.equal(classify(act('Firefox', null, 'Funny cats - YouTube — Mozilla Firefox'), DEFAULT_RULES).kind, 'distraction');
-  assert.equal(classify(act('Firefox', null, 'Project 2 - bCourses — Mozilla Firefox'), DEFAULT_RULES).kind, 'neutral');
+  assert.equal(classify(context(act('Firefox', null, 'Funny cats - YouTube — Mozilla Firefox')), DEFAULT_RULES).kind, 'distraction');
+  assert.equal(classify(context(act('Firefox', null, 'Project 2 - bCourses — Mozilla Firefox')), DEFAULT_RULES).kind, 'neutral');
+});
+
+test('Mac activity includes the full active URL and page title', async () => {
+  const platform = createMacPlatform(async (lines) => {
+    if (lines[0].includes('System Events')) return 'Google Chrome';
+    return 'https://www.google.com/search?q=nfl+scores&sourceid=chrome\x1enfl scores - Google Search';
+  });
+  const activity = await platform.activity();
+  assert.equal(activity?.url, 'https://www.google.com/search?q=nfl+scores&sourceid=chrome');
+  assert.equal(activity?.title, 'nfl scores - Google Search');
 });
 
 test('timezone helpers', () => {
@@ -162,6 +173,8 @@ test('FocusEngine: nudge, then block and restore the last work tab', async () =>
   engine.start('CS188 project', null, 50);
 
   await engine.tick(); // on Canvas -> remembered as last relevant tab
+  assert.equal(engine.activityContext?.intent, 'CS188 project');
+  assert.equal(engine.activityContext?.activity, screen.current);
   screen.current = act('Google Chrome', 'https://www.youtube.com/');
   clock += 3_000;
   await engine.tick(); // drift starts -> nudge

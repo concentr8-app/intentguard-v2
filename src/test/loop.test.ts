@@ -102,3 +102,21 @@ test('typed intent with a start time also auto-starts', () => {
   controller.clockTick();
   assert.equal(controller.getState().session?.task, 'Problem set 6');
 });
+
+test('an arbitrary typed intent starts without a matching bCourses task', () => {
+  const { controller, store } = setup(false);
+  store.setTasks([
+    {
+      id: 'math-hw8',
+      title: 'HW8',
+      course: 'MATH 185',
+      dueAt: '2026-10-29T21:00:00Z',
+      url: 'https://bcourses.berkeley.edu/courses/1/assignments/8',
+      kind: 'assignment',
+    },
+  ]);
+  controller.setIntent('Build Concentr8 CalHacks demo', '');
+  controller.startFocus();
+  assert.equal(controller.getState().session?.task, 'Build Concentr8 CalHacks demo');
+  assert.equal(controller.getState().session?.taskUrl, null);
+});
