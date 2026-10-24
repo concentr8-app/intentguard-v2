@@ -39,6 +39,13 @@ Latest automated verification on Node.js `v26.7.0`:
 - `npm test`: passed, 30/30 tests.
 - `npm run build`: passed.
 
+## Call server (partner-owned workstream)
+
+- One server serves many students: `POST /api/register` (invite code + consent) returns a personal token; `APP_API_KEY` stays the owner key; per-student phone, call time, timezone, tasks, daily call caps, "stop" on the phone, `DELETE /api/me`.
+- The app signs students up in Settings → Morning call; "I run my own call server" keeps the API-key path.
+- This is deliberately lightweight (invite code + token), not production authentication. No phone verification yet.
+- 11 server tests: `cd server && npm test`. Needs a live check on Telnyx (trial calls only verified numbers) and Cartesia (not integrated yet).
+
 ## Current known limitations
 
 - Semantic classification requires an optional provider key and network connection; the app remains deterministic without them.

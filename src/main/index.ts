@@ -116,6 +116,8 @@ function registerIpc(c: Controller) {
   h('sync', () => c.syncCanvas());
   h('connectServer', (url: string, key: string) => c.connectServer(url, key));
   h('disconnectServer', () => c.disconnectServer());
+  h('signUp', (input: { serverUrl?: string; inviteCode: string; phoneNumber: string; callTime: string }) => c.signUp(input));
+  h('deleteAccount', () => c.deleteAccount());
   h('callNow', () => c.callNow());
   h('setIntent', (task: string, time: string) => c.setIntent(task, time));
   h('startFocus', (task?: string, minutes?: number) => c.startFocus(task, minutes));

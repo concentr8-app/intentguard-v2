@@ -13,6 +13,18 @@ export interface ServerToday {
 
 export class CallServerError extends Error {}
 
+/** The shared call server of this app. Students only need an invite code to use it. */
+export const DEFAULT_SERVER_URL = 'https://intentguard-v-2.replit.app';
+
+async function errorMessage(res: Response): Promise<string | null> {
+  try {
+    const body = (await res.json()) as { error?: unknown };
+    return typeof body.error === 'string' ? body.error : null;
+  } catch {
+    return null;
+  }
+}
+
 export class CallServerClient {
   private readonly base: string;
 
@@ -20,7 +32,7 @@ export class CallServerClient {
     this.base = baseUrl.trim().replace(/\/+$/, '');
   }
 
-  private async request<T>(method: 'GET' | 'POST', path: string, body?: unknown, auth = true): Promise<T> {
+  private async request<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown, auth = true): Promise<T> {
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (auth) headers.Authorization = `Bearer ${this.apiKey}`;
     if (body !== undefined) headers['Content-Type'] = 'application/json';
@@ -36,8 +48,34 @@ export class CallServerClient {
       throw new CallServerError(`Call server unreachable (${(err as Error).message})`);
     }
     if (res.status === 401 || res.status === 403) throw new CallServerError('Call server rejected the API key');
-    if (!res.ok) throw new CallServerError(`Call server answered ${res.status}`);
+    if (!res.ok) throw new CallServerError((await errorMessage(res)) || `Call server answered ${res.status}`);
     return (await res.json()) as T;
+  }
+
+  /** Signs a new student up and returns their personal token (stored in the keychain by the caller). */
+  static async register(
+    baseUrl: string,
+    input: { phoneNumber: string; inviteCode: string; callTime: string; timezone: string },
+  ): Promise<{ userId: string; token: string }> {
+    let res: Response;
+    try {
+      res = await fetch(baseUrl.trim().replace(/\/+$/, '') + '/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ ...input, consent: true }),
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch (err) {
+      throw new CallServerError(`Call server unreachable (${(err as Error).message})`);
+    }
+    if (!res.ok) throw new CallServerError((await errorMessage(res)) || `Call server answered ${res.status}`);
+    const body = (await res.json()) as { userId: string; token: string };
+    return { userId: body.userId, token: body.token };
+  }
+
+  /** Stops the morning calls and deletes this student's data on the server. */
+  deleteAccount(): Promise<{ ok: boolean }> {
+    return this.request('DELETE', '/api/me');
   }
 
   health(): Promise<{ ok: boolean }> {

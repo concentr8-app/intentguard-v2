@@ -7,7 +7,7 @@
 
 import type { AppState, Settings, Task, TodayIntent } from '../shared/types';
 import { CanvasClient, demoTasks, feedTasks, isFeedUrl } from '../services/canvas';
-import { CallServerClient } from '../services/callServer';
+import { CallServerClient, DEFAULT_SERVER_URL } from '../services/callServer';
 import { FocusEngine } from '../services/focus';
 import { matchTask } from '../services/match';
 import type { Platform } from '../services/platform';
@@ -210,6 +210,45 @@ export class Controller {
       await this.pushTasksToServer(this.store.tasks);
       await this.pollServer();
       this.say('Call server connected.');
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  }
+
+  /** New student: sign up on the shared server with an invite code, then everything works like a connected server. */
+  async signUp(input: { serverUrl?: string; inviteCode: string; phoneNumber: string; callTime: string }): Promise<{ ok: boolean; error?: string }> {
+    const serverUrl = (input.serverUrl || '').trim().replace(/\/+$/, '') || DEFAULT_SERVER_URL;
+    const phoneNumber = input.phoneNumber.trim();
+    const callTime = input.callTime || '08:00';
+    if (!phoneNumber) return { ok: false, error: 'Enter your phone number first.' };
+    if (!input.inviteCode.trim()) return { ok: false, error: 'Enter the invite code.' };
+    try {
+      const { token } = await CallServerClient.register(serverUrl, {
+        phoneNumber,
+        inviteCode: input.inviteCode.trim(),
+        callTime,
+        timezone: this.settings.timezone,
+      });
+      this.store.serverApiKey = token;
+      this.store.updateSettings({ serverUrl, serverConnected: true, phoneNumber, callTime });
+      await this.pushTasksToServer(this.store.tasks);
+      await this.pollServer();
+      this.say('Morning calls are on.');
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: (err as Error).message };
+    }
+  }
+
+  /** Stops the calls for good and removes this student's data from the server. */
+  async deleteAccount(): Promise<{ ok: boolean; error?: string }> {
+    const server = this.server();
+    if (!server) return { ok: true };
+    try {
+      await server.deleteAccount();
+      this.disconnectServer();
+      this.say('Your account on the call server is deleted.');
       return { ok: true };
     } catch (err) {
       return { ok: false, error: (err as Error).message };

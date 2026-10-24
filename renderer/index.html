@@ -119,24 +119,49 @@
 
     <section class="group">
       <h3>Morning call</h3>
-      <p class="muted">The call server phones you, asks which task you'll start and when, and sends the answer here.</p>
-      <form id="server-form" class="stack">
-        <label class="field"><span>Server address</span>
-          <input id="server-url" type="url" spellcheck="false" placeholder="https://your-repl.replit.app"></label>
-        <label class="field"><span>API key</span>
-          <input id="server-key" type="password" autocomplete="off" spellcheck="false" placeholder="The APP_API_KEY you set on Replit"></label>
-        <p class="error" id="server-error" role="alert"></p>
-        <div class="row">
-          <button class="primary small" type="submit">Connect server</button>
-          <button class="link" id="server-disconnect" type="button" hidden>Disconnect</button>
-        </div>
-      </form>
+      <p class="muted">Every morning Concentr8 phones you, asks which task you'll start and when, and sends the answer here.</p>
       <div class="pair">
         <label class="field"><span>Your phone</span>
           <input id="phone" type="tel" placeholder="+1 510 555 0100"></label>
         <label class="field"><span>Call me at</span>
           <input id="call-time" type="time" value="08:00"></label>
       </div>
+
+      <form id="signup-form" class="stack">
+        <label class="field"><span>Invite code</span>
+          <input id="invite-code" type="text" autocomplete="off" spellcheck="false" placeholder="From the Concentr8 team"></label>
+        <label class="check">
+          <input id="call-consent" type="checkbox">
+          <span>Call me every morning on this number. I can say “stop” on the call, or delete my account here, at any time.</span>
+        </label>
+        <p class="error" id="signup-error" role="alert"></p>
+        <div class="row">
+          <button class="primary small" id="signup-button" type="submit">Start my morning calls</button>
+        </div>
+      </form>
+
+      <div class="stack" id="connected-block" hidden>
+        <p class="muted" id="connected-note">Morning calls are on.</p>
+        <div class="row">
+          <button class="secondary small" id="server-disconnect" type="button">Disconnect this Mac</button>
+          <button class="link" id="delete-account" type="button">Stop calls and delete my account</button>
+        </div>
+        <p class="error" id="delete-error" role="alert"></p>
+      </div>
+
+      <details class="advanced" id="own-server">
+        <summary>I run my own call server</summary>
+        <form id="server-form" class="stack">
+          <label class="field"><span>Server address</span>
+            <input id="server-url" type="url" spellcheck="false" placeholder="https://your-repl.replit.app"></label>
+          <label class="field"><span>API key</span>
+            <input id="server-key" type="password" autocomplete="off" spellcheck="false" placeholder="The APP_API_KEY you set on Replit"></label>
+          <p class="error" id="server-error" role="alert"></p>
+          <div class="row">
+            <button class="secondary small" type="submit">Connect server</button>
+          </div>
+        </form>
+      </details>
     </section>
 
     <section class="group">

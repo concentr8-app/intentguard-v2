@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import type { Rules, SessionSummary, Settings, Task, TodayIntent } from '../shared/types';
 import { BERKELEY_CANVAS } from '../services/canvas';
+import { DEFAULT_SERVER_URL } from '../services/callServer';
 import { DEFAULT_RULES } from '../services/rules';
 
 export interface Crypto {
@@ -29,7 +30,7 @@ export function defaultSettings(): Settings {
     canvasFeed: false,
     canvasUserName: null,
     demoMode: false,
-    serverUrl: '',
+    serverUrl: DEFAULT_SERVER_URL,
     serverConnected: false,
     phoneNumber: '',
     callTime: '08:00',

@@ -3,6 +3,8 @@
 Phones you every morning, reads your next Canvas deadlines, asks which one you'll start and when,
 and gives the answer to the Mac app. No dependencies, Node 18 or newer.
 
+One server can phone many students: each signs up in the app with an invite code and gets their own token.
+
 This is the reference version. If the server Replit Agent built works, use that one;
 if not, run this folder on Replit instead (it follows the same API, see `../docs/call-server-api.md`).
 
@@ -33,7 +35,8 @@ if not, run this folder on Replit instead (it follows the same API, see `../docs
    | Name | Value |
    |---|---|
    | `USER_PHONE_NUMBER` | the phone to call (on trial accounts it must be your verified number) |
-   | `APP_API_KEY` | any long password; the Mac app needs the same one |
+   | `APP_API_KEY` | any long password: the **owner's** key (your own app uses it) |
+   | `REGISTER_CODE` | the invite code friends type in the app to sign up. Without it nobody can sign up |
    | `ANTHROPIC_API_KEY` | optional: Claude makes the call sound less scripted |
    | `CANVAS_TOKEN` | optional: bCourses access token, so the call reads your deadlines even when the Mac app is closed |
    | `CANVAS_FEED_URL` | optional, instead of the token: the bCourses calendar feed link |
@@ -51,6 +54,9 @@ The server finds its own public address on Replit. Elsewhere, set `PUBLIC_URL`.
 | Name | Default | What it does |
 |---|---|---|
 | `PORT` | `3000` | |
+| `MAX_CALLS_PER_USER_PER_DAY` | `10` | calls one student can get per day (including “Call me now”) |
+| `MAX_CALLS_PER_DAY` | `300` | calls the whole server places per day |
+| `MAX_SIGNUPS_PER_DAY` | `200` | new students per day |
 | `PUBLIC_URL` | auto on Replit | base URL Twilio calls back |
 | `DATA_FILE` | `server/data.json` | where tasks and answers are kept |
 | `CALL_VOICE` | `Polly.Joanna-Neural` | the `<Say>` voice. Telnyx + ElevenLabs: `ElevenLabs.Default.<voice_id>` |
@@ -58,6 +64,21 @@ The server finds its own public address on Replit. Elsewhere, set `PUBLIC_URL`.
 | `TWILIO_VOICE` | | old name of `CALL_VOICE` |
 | `VALIDATE_TWILIO_SIGNATURE` | off | set `true` to reject webhooks not signed by Twilio |
 | `ANTHROPIC_MODEL` | `claude-haiku-5-5` | model for the optional natural replies |
+
+## Many students
+
+- Share the app and the invite code (`REGISTER_CODE`). In the app: **Settings → Morning call**, phone, invite code, tick the box, **Start my morning calls**.
+- Every student has their own phone, call time, timezone and tasks. The server calls each at their own local time.
+- Students can say “stop” on the call, or delete their account in the app (`DELETE /api/me`).
+- Only your own bCourses can be read by the server (`CANVAS_TOKEN`). Everyone else's app pushes their tasks when it syncs.
+- A Telnyx trial account calls only its verified numbers and 10 calls a day. For real use you need a paid carrier plan (or a carrier whose numbers can call anyone).
+- Calling people needs their consent (in the US this is covered by the TCPA). The app asks for it when they sign up; keep the invite code among people who agreed.
+
+## Tests
+
+```sh
+cd server && npm test
+```
 
 ## Test without a phone
 

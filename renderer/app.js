@@ -269,7 +269,13 @@ function openSettings() {
   $('server-url').value = s.serverUrl || '';
   $('server-key').value = '';
   $('server-key').placeholder = s.serverConnected ? 'Saved. Paste a new key to replace it.' : 'The APP_API_KEY you set on Replit';
-  $('server-disconnect').hidden = !s.serverConnected;
+  $('signup-form').hidden = s.serverConnected;
+  $('connected-block').hidden = !s.serverConnected;
+  $('own-server').hidden = s.serverConnected;
+  $('signup-error').textContent = '';
+  $('delete-error').textContent = '';
+  $('invite-code').value = '';
+  $('call-consent').checked = false;
   $('server-error').textContent = '';
   $('phone').value = s.phoneNumber || '';
   $('call-time').value = s.callTime;
@@ -417,7 +423,46 @@ $('server-form').addEventListener('submit', async (e) => {
 });
 $('server-disconnect').addEventListener('click', async () => {
   await c8.disconnectServer();
-  $('server-disconnect').hidden = true;
+  $('signup-form').hidden = false;
+  $('connected-block').hidden = true;
+  $('own-server').hidden = false;
+});
+$('signup-form').addEventListener(
+  'submit',
+  busy($('signup-button'), async () => {
+    $('signup-error').textContent = '';
+    if (!$('call-consent').checked) {
+      $('signup-error').textContent = 'Tick the box to confirm you want the morning call.';
+      return;
+    }
+    const r = await c8.signUp({
+      serverUrl: $('server-url').value.trim(),
+      inviteCode: $('invite-code').value.trim(),
+      phoneNumber: $('phone').value.trim(),
+      callTime: $('call-time').value || '08:00',
+    });
+    if (!r.ok) {
+      $('signup-error').textContent = r.error;
+      return;
+    }
+    await saveSettings();
+    $('signup-form').hidden = true;
+    $('connected-block').hidden = false;
+    $('own-server').hidden = true;
+    $('saved-note').textContent = 'Morning calls are on';
+  }),
+);
+$('delete-account').addEventListener('click', async () => {
+  $('delete-error').textContent = '';
+  if (!window.confirm('Stop the morning calls and delete your account on the call server?')) return;
+  const r = await c8.deleteAccount();
+  if (!r.ok) {
+    $('delete-error').textContent = r.error;
+    return;
+  }
+  $('signup-form').hidden = false;
+  $('connected-block').hidden = true;
+  $('own-server').hidden = false;
 });
 $('canvas-disconnect').addEventListener('click', async () => {
   await c8.disconnectCanvas();

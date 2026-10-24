@@ -109,6 +109,11 @@ button:disabled { opacity: 0.5; cursor: default; }
 .field textarea { resize: vertical; font-size: 13px; }
 .field input:focus, .field textarea:focus { border-color: var(--leaf); outline: none; box-shadow: 0 0 0 3px rgba(47, 107, 63, 0.15); }
 
+.check { display: flex; gap: var(--s3); align-items: flex-start; font-size: 13px; color: var(--moss); line-height: 1.4; }
+.check input { margin-top: 3px; flex: none; }
+.advanced { border-top: 1px solid var(--line); padding-top: var(--s3); }
+.advanced summary { cursor: pointer; font-weight: 600; font-size: 13px; padding: var(--s2) 0; }
+.advanced[open] summary { margin-bottom: var(--s3); }
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s3); }
 
 .error { color: var(--brick); font-size: 13px; min-height: 0; }

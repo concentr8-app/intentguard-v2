@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld('c8', {
   sync: () => invoke('sync'),
   connectServer: (url: string, key: string) => invoke('connectServer', url, key),
   disconnectServer: () => invoke('disconnectServer'),
+  signUp: (input: unknown) => invoke('signUp', input),
+  deleteAccount: () => invoke('deleteAccount'),
   callNow: () => invoke('callNow'),
   setIntent: (task: string, time: string) => invoke('setIntent', task, time),
   startFocus: (task?: string, minutes?: number) => invoke('startFocus', task, minutes),
