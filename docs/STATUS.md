@@ -46,7 +46,7 @@ Real provider calls still depend on valid credentials, account state, phone veri
 
 ### Simpler start (branch `simpler-start`)
 
-- No bCourses gate: the app opens on "What's the one thing you'll start today?". Connecting bCourses or loading sample assignments is offered in the task list and in Settings.
+- No bCourses gate: the app opens on "What's the one thing you'll start today?". "Add your courses" (bCourses) and "Add sample assignments" are offered in the task list and in Settings, worded as an invitation so students who start right away still add their courses.
 - Typing a task and pressing Enter starts the session at once ("Start now"); typing a time first plans it instead ("Plan it"), and it starts by itself at that time.
 - Verified by rendering the window with a stubbed `window.c8` in Chromium; not yet on a real Mac.
 - Verified: 15 new tests in `src/test/stuck.test.ts` (flow, pause, fallbacks, call, timeout, old server). Not yet verified: `npm run typecheck`/`build` with real Electron types, the calm window on a real Mac (multi-display, full-screen apps), and a live Claude call.

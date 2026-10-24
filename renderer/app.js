@@ -280,8 +280,8 @@ function paintTasks() {
     setHTML(
       $('task-list'),
       `<li class="empty connect">
-        <button class="secondary small" type="button" data-action="connect-canvas">Connect bCourses</button>
-        <button class="link" type="button" data-action="use-demo">Try sample assignments</button>
+        <button class="secondary small" type="button" data-action="connect-canvas">Add your courses</button>
+        <button class="link" type="button" data-action="use-demo">Add sample assignments</button>
       </li>`,
     );
     return;
@@ -289,7 +289,7 @@ function paintTasks() {
   line.textContent = syncError
     ? syncError
     : settings.demoMode
-      ? 'Sample data. Connect bCourses in Settings for your real courses.'
+      ? 'Sample data. Add your courses in Settings to see your real assignments.'
       : lastSync
         ? `Synced ${ago(lastSync)}`
         : 'Syncing…';

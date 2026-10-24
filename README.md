@@ -54,7 +54,7 @@ The app opens on one question: what will you start? Type any task, such as “Bu
 
 ### Connect bCourses (optional)
 
-Choose **Connect bCourses** in the task list (or Settings → bCourses). In bCourses, go to **Account → Settings → New access token**, name it Concentr8, and paste the token into the app. If token creation is unavailable, open **Calendar → Calendar Feed** and paste that link instead. **Try with sample assignments** works without an account.
+Choose **Add your courses** in the task list (or Settings → bCourses). In bCourses, go to **Account → Settings → New access token**, name it Concentr8, and paste the token into the app. If token creation is unavailable, open **Calendar → Calendar Feed** and paste that link instead. **Add sample assignments** works without an account.
 
 The token is stored with Electron `safeStorage` and the macOS keychain.
 
@@ -87,7 +87,7 @@ Open `<server-url>/api/health` to see the active carrier and whether required co
 
 ## Demo in two minutes
 
-1. Open the app. Optionally choose **Try sample assignments** in the task list.
+1. Open the app. Optionally choose **Add sample assignments** in the task list.
 2. Type the task and press Enter: the session starts. A connected call server is optional.
 3. Keep Concentr8 and Chrome visible side by side: the app shows the foreground app, page title, and full URL.
 4. Open `youtube.com`: Concentr8 warns, waits for the configured grace period, then redirects to the last relevant work page or closes the tab.
