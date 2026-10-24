@@ -29,7 +29,7 @@ bCourses task (optional) ──┼──▶ Electron Mac app ──▶ observe �
 phone answer (optional) ───┘          │
                                       └──▶ local JSON state/history
 
-Electron app ◀── plan/tasks ──▶ Node call server ──▶ Telnyx or Twilio ──▶ phone
+Electron app ◀── plan/tasks ──▶ Node call server ──▶ Cartesia agent (or Telnyx / Twilio) ──▶ phone
 ```
 
 - **Mac app** (`src/`, `renderer/`): Electron with a TypeScript main process and plain HTML/CSS/JS renderer.
@@ -77,7 +77,7 @@ Deploy the call server using [`server/README.md`](server/README.md). In the app,
 
 ### Phone carrier and voice
 
-The server uses **Telnyx** when `TELNYX_API_KEY` is configured; otherwise it uses **Twilio**. Twilio may require an approved Business profile for calls to +1 numbers. A Telnyx trial can call its verified number.
+The server uses a **Cartesia voice agent** when `CARTESIA_API_KEY`, `CARTESIA_AGENT_ID` and `CARTESIA_PHONE_NUMBER_ID` are set (setup: [`docs/CARTESIA-SETUP.md`](docs/CARTESIA-SETUP.md)). Otherwise it uses **Telnyx** when `TELNYX_API_KEY` is configured; otherwise it uses **Twilio**. Twilio may require an approved Business profile for calls to +1 numbers. A Telnyx trial can call its verified number.
 
 Amazon Polly is the default voice. Optional ElevenLabs voice through Telnyx requires a paid ElevenLabs plan, `CALL_VOICE=ElevenLabs.Default.<voice_id>`, and `TELNYX_VOICE_KEY_REF=<integration-secret-name>`. Optional Claude responses on the phone use `ANTHROPIC_API_KEY` on the server.
 
