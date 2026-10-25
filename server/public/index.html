@@ -78,7 +78,7 @@ header a.cta:hover{background:var(--call)}
 
 /* setup */
 ol.setup{list-style:none;counter-reset:s;margin:44px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:40px}
-ol.setup li{counter-increment:s;border-top:3px solid var(--call-deep);padding-top:18px}
+ol.setup li{min-width:0;counter-increment:s;border-top:3px solid var(--call-deep);padding-top:18px}
 ol.setup li::before{content:counter(s);display:block;font:700 2.4rem/1 var(--display);color:var(--call-deep);margin-bottom:12px}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) ol.setup li{border-color:var(--call)}:root:not([data-theme="light"]) ol.setup li::before{color:var(--call)}}
 ol.setup h3{font-size:1.3rem;margin-bottom:6px}
@@ -129,6 +129,24 @@ section h2{font-size:clamp(1.9rem,4vw,2.9rem);max-width:34rem}
 .feat h3{font-size:1.35rem;margin-bottom:8px}
 .feat p{color:var(--mute)}
 
+/* research: always a dark panel, numbers in sun yellow */
+.lab{background:#0d2a26;color:#f1f6f2;border-radius:28px;padding:60px 44px 44px}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .lab{background:#06150f;border:1px solid var(--line)}}
+.lab h2{max-width:38rem}
+.lab h2 em{font-style:normal;color:var(--sun)}
+.lab .intro{color:#b7cbc3}
+ul.studies{list-style:none;margin:44px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+ul.studies li{display:flex;flex-direction:column;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:18px;padding:26px 22px 20px}
+.studies .big{display:block;white-space:nowrap;font:700 clamp(2.2rem,3.6vw,2.9rem)/1 var(--display);letter-spacing:-.03em;color:var(--sun)}
+.studies .find{margin-top:14px;font-size:1rem;line-height:1.5;color:#e6efe9}
+.studies .so{margin-top:12px;font:700 1.02rem/1.35 var(--display);color:#9fd8b7}
+.studies .so::before{content:"\2192\00a0";color:var(--sun)}
+.studies .src{margin-top:auto;padding-top:18px;font-size:.82rem;line-height:1.4;color:#9bb2aa;text-decoration:none}
+.studies .src:hover{color:#fff;text-decoration:underline}
+.lab .fine{margin-top:28px;font-size:.88rem;color:#9bb2aa;max-width:46rem}
+@media (max-width:980px){ul.studies{grid-template-columns:1fr 1fr}}
+@media (max-width:620px){ul.studies{grid-template-columns:1fr}.lab{padding:42px 20px 30px;border-radius:22px}}
+
 /* faq */
 details{border-bottom:1px solid var(--line);padding:18px 0;max-width:46rem}
 summary{cursor:pointer;font:700 1.2rem var(--display);list-style:none;display:flex;justify-content:space-between;gap:20px}
@@ -163,7 +181,7 @@ footer{padding:0 0 48px;color:var(--mute);font-size:.9rem}
 <div class="wrap">
   <header>
     <a class="brand lockup" href="#top" aria-label="Concentr8, by and for UC Berkeley students"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" aria-hidden="true" focusable="false"><circle cx="64" cy="64" r="64" fill="#CFE8C4"/><g transform="translate(18.1 20.3) scale(0.717)"><path fill="#855B52" d="M63.29,9.93c14.92,0.22,16.4,3.61,20.77,3.73c6.32,0.18,15.98-11.97,29.07-0.99 c12.9,10.82,2.39,27.8,2.39,27.8s7.18,12.72,8.02,32.1c0.61,14.03-4.79,31.49-29,41.39c-22.29,9.12-55.55,7.3-75.88-8.31 C2.9,93.56,4.01,75.92,4.44,69.91c1.13-15.77,8.02-28.44,8.02-28.44s-10.19-20.15,2.25-29.7c13.66-10.49,23.38,1.86,29,1.41 C47.8,12.84,49.14,9.72,63.29,9.93z"/><path fill="#B99277" d="M35.98,20.77c-0.19-1.11-7.43-8.29-14.92-0.99c-5.77,5.63,0,15.42,0.99,14.64 c0.76-0.6,3.56-4.21,6.83-7.32C32.23,23.91,36.05,21.2,35.98,20.77z"/><path fill="#B99277" d="M92.5,20.84c-0.05,0.62,3.81,2.95,7.32,6.26c3.55,3.35,6.75,7.67,7.32,7.6 c1.13-0.14,5.98-9.64-0.35-14.99S92.64,19.01,92.5,20.84z"/><path fill="#F2A258" d="M64.51,60.38c14.64,0,23.42,16.52,22.9,26.84c-0.47,9.39-5.82,17.18-23.84,17.08 c-18.02-0.09-22.59-8.36-22.9-17.18C40.39,79.24,46.02,60.38,64.51,60.38z"/><path fill="#171716" d="M92.92,59.7c0.33,4.16-1.9,7.95-6.17,7.63c-4.12-0.32-7.13-3.66-7.13-7.84s2.22-7.14,5.56-7.6 C89.26,51.32,92.45,53.79,92.92,59.7z"/><path fill="#2F3030" d="M74.55,76.99c-0.34,4.16-3.1,8.61-11.12,8.33c-6.73-0.24-9.9-4.72-10-8.89 c-0.14-5.89,3-8.06,10.61-8.17C72.72,68.15,75.02,71.27,74.55,76.99z"/><path fill="#171716" d="M48.37,61.25c-0.43,4.15-4.33,7.06-7.98,6.17c-4.01-0.98-5.81-5.2-4.97-9.29 c0.75-3.66,3.96-6.51,7.6-6.1C46.82,52.45,48.91,56.02,48.37,61.25z"/><path fill="#2F3030" d="M63.99,95.04c5.49,0,8.49-3.03,9.34-3.87s1.99-2.28,3.75-0.84c1.5,1.22,0.02,3.12-0.66,3.85 c-1.22,1.31-4.9,5.31-12.93,4.95c-7.88-0.35-10.91-3.92-11.76-4.76c-0.84-0.84-2.25-3-0.66-4.22c1.91-1.46,2.53,0.19,4.5,1.78 S58.78,95.04,63.99,95.04z"/></g></svg><span class="name">Concentr8</span><span class="div" aria-hidden="true"></span><span class="by" aria-hidden="true">By and for<br>UC Berkeley students</span></a>
-    <nav class="top-links"><a class="top" href="#day">How it works</a> <a class="top" href="#claude">Claude</a> <a class="top" href="#faq">Questions</a> <a class="cta" href="#dl">Download</a></nav>
+    <nav class="top-links"><a class="top" href="#day">How it works</a> <a class="top" href="#research">Research</a> <a class="top" href="#claude">Claude</a> <a class="top" href="#faq">Questions</a> <a class="cta" href="#dl">Download</a></nav>
   </header>
 
   <main id="top">
@@ -223,6 +241,52 @@ footer{padding:0 0 48px;color:var(--mute);font-size:.9rem}
         <li><time>10:15</time><div><h3>You are stuck</h3><p>One minute of breathing, then one tiny step.</p></div></li>
         <li><time>11:00</time><div><h3>A break</h3><p>Take it on purpose. No nudges.</p></div></li>
       </ul>
+    </section>
+
+    <section id="research">
+      <div class="lab">
+        <h2>Built on research, <em>not hunches.</em></h2>
+        <p class="intro">Every part of Concentr8 goes back to a study about getting started, several of them with people who have ADHD.</p>
+        <ul class="studies">
+          <li>
+            <span class="big">½ grade</span>
+            <p class="find">College students with ADHD earned about half a grade less in all four years, and fewer stayed enrolled.</p>
+            <p class="so">Why we built Concentr8.</p>
+            <a class="src" href="https://digitalcommons.uri.edu/psy_facpubs/900">DuPaul et al., 2021 · 406 college students</a>
+          </li>
+          <li>
+            <span class="big">Since 1997</span>
+            <p class="find">UC Berkeley researchers have followed girls with ADHD into adulthood. Trouble with school did not simply fade with age.</p>
+            <p class="so">Why it checks in every day, not once.</p>
+            <a class="src" href="https://news.berkeley.edu/2012/08/14/adhdyoungadults/">Hinshaw lab, UC Berkeley · 228 participants</a>
+          </li>
+          <li>
+            <span class="big">94 studies</span>
+            <p class="find">Deciding exactly when you will start, called an if-then plan, clearly helps people follow through.</p>
+            <p class="so">So the morning call asks: which task, and when?</p>
+            <a class="src" href="https://kops.uni-konstanz.de/entities/publication/2e749bfb-8533-437c-8203-7e788c910c5f">Gollwitzer &amp; Sheeran, 2006 · meta-analysis</a>
+          </li>
+          <li>
+            <span class="big">If → then</span>
+            <p class="find">If-then plans helped children with ADHD hold back unwanted responses, up to the level of children without ADHD.</p>
+            <p class="so">The same idea, tested with ADHD.</p>
+            <a class="src" href="https://www.socmot.uni-konstanz.de/publications/implementation-intentions-facilitate-response-inhibition-adhd-children">Gawrilow &amp; Gollwitzer, 2008</a>
+          </li>
+          <li>
+            <span class="big">2 in 3</span>
+            <p class="find">Adults with ADHD who learned skills like breaking big tasks into small steps: more than 2 in 3 saw symptoms drop by 30% or more, against about 1 in 3 with relaxation training.</p>
+            <p class="so">So when you are stuck, you get one tiny first step.</p>
+            <a class="src" href="https://sciencedaily.com/releases/2010/08/100824161434.htm">Safren et al., JAMA 2010 · randomized trial</a>
+          </li>
+          <li>
+            <span class="big">5 min</span>
+            <p class="find">Five minutes a day of structured breathing, box breathing among them, improved mood over four weeks.</p>
+            <p class="so">So I'm stuck starts with a minute of box breathing.</p>
+            <a class="src" href="https://pmc.ncbi.nlm.nih.gov/articles/PMC9873947">Balban et al., Stanford 2023 · 108 adults</a>
+          </li>
+        </ul>
+        <p class="fine">These studies are why we designed Concentr8 this way. Concentr8 itself has not been tested in a study, and it is not a medical product.</p>
+      </div>
     </section>
 
     <section id="claude">
