@@ -270,8 +270,9 @@ async function claudeOpeningLine(u) {
       signal: AbortSignal.timeout(6000),
     });
     if (!res.ok) {
-      console.error(`[greeting] Claude answered ${res.status}; using the fixed greeting`);
-      noteClaude('greeting', false, `Claude answered ${res.status}`);
+      const why = await claudeError(res);
+      console.error(`[greeting] ${why}; using the fixed greeting`);
+      noteClaude('greeting', false, why);
       return fallback;
     }
     const body = await res.json();
@@ -366,7 +367,14 @@ const BUILD = (() => {
 const claudeModel = () => env.ANTHROPIC_MODEL || 'claude-haiku-5-5';
 
 function noteClaude(feature, ok, detail) {
-  claudeStatus[feature] = { ok, at: new Date().toISOString(), ...(detail ? { detail: String(detail).slice(0, 80) } : {}) };
+  claudeStatus[feature] = { ok, at: new Date().toISOString(), ...(detail ? { detail: String(detail).slice(0, 160) } : {}) };
+}
+
+/** "Claude answered 400: Your credit balance is too low …": Anthropic's own error text, which holds no secret. */
+async function claudeError(res) {
+  const body = await res.json().catch(() => ({}));
+  const message = String((body && body.error && body.error.message) || '').replace(/\s+/g, ' ').trim().slice(0, 120);
+  return `Claude answered ${res.status}${message ? `: ${message}` : ''}`;
 }
 
 /** One tiny request (a few tokens) at start-up and twice a day: proves the key and the model work. */
@@ -381,8 +389,9 @@ async function claudeSelfTest() {
     });
     if (res.ok) noteClaude('selfTest', true);
     else {
-      noteClaude('selfTest', false, `Claude answered ${res.status}`);
-      console.error(`[claude] self-test: Claude answered ${res.status} for model ${claudeModel()}`);
+      const why = await claudeError(res);
+      noteClaude('selfTest', false, why);
+      console.error(`[claude] self-test: ${why} (model ${claudeModel()})`);
     }
   } catch (err) {
     noteClaude('selfTest', false, err.name);
@@ -442,9 +451,9 @@ async function claudeFirstStep(body) {
     throw httpError(502, `Claude did not answer (${err.name})`);
   }
   if (!res.ok) {
-    const detail = await res.text().catch(() => '');
-    console.error(`[first-step] Claude answered ${res.status}:`, detail.slice(0, 300));
-    noteClaude('firstStep', false, `Claude answered ${res.status}`);
+    const why = await claudeError(res);
+    console.error(`[first-step] ${why}`);
+    noteClaude('firstStep', false, why);
     throw httpError(502, `Claude answered ${res.status}`);
   }
   const data = await res.json();
@@ -758,8 +767,9 @@ async function impactSummary(u) {
           noteClaude('summary', false, 'answer did not fit');
         }
       } else {
-        console.error(`[summary] Claude answered ${res.status}; using the fixed sentence`);
-        noteClaude('summary', false, `Claude answered ${res.status}`);
+        const why = await claudeError(res);
+        console.error(`[summary] ${why}; using the fixed sentence`);
+        noteClaude('summary', false, why);
       }
     } catch (err) {
       console.error('[summary] Claude request failed; using the fixed sentence:', err.name, err.message);

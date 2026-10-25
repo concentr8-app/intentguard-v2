@@ -326,7 +326,9 @@ test('health shows whether Claude works, per feature, without any secret', async
     claudeAnswer = () => ({ status: 200, json: { content: [{ type: 'text', text: 'OK' }] } });
     assert.equal((await claudeSelfTest()).ok, true);
     claudeAnswer = () => ({ status: 401, json: { error: { message: 'invalid x-api-key' } } });
-    assert.deepEqual([(await claudeSelfTest()).ok, claudeStatus.selfTest.detail], [false, 'Claude answered 401']);
+    assert.deepEqual([(await claudeSelfTest()).ok, claudeStatus.selfTest.detail], [false, 'Claude answered 401: invalid x-api-key']);
+    claudeAnswer = () => ({ status: 400, json: { type: 'error', error: { type: 'invalid_request_error', message: 'Your credit balance is too low to access the Anthropic API.' } } });
+    assert.match((await claudeSelfTest()).detail, /^Claude answered 400: Your credit balance is too low/, 'the reason shows in /api/health');
 
     h = await (await fetch(base + '/api/health')).json();
     assert.equal(h.claude.key, true);
