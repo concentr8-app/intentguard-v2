@@ -237,7 +237,7 @@ app.whenReady().then(() => {
   const relevanceLog = (message: string) => console.info(message);
   const semantic = new CachedSemanticClassifier(createGroqSemanticProvider(), relevanceLog);
   const stepProvider = createStepProvider();
-  console.info(stepProvider ? `[stuck] step provider=${stepProvider.name} model=${stepProvider.model}` : '[stuck] fixed steps only');
+  console.info(stepProvider ? `[stuck] step provider=${stepProvider.name} model=${stepProvider.model}` : '[stuck] steps from Claude via the call server when signed in, else fixed steps');
   controller = new Controller({
     store,
     platform,

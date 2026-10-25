@@ -296,6 +296,66 @@ async function claudeUnderstand(u, speech) {
   return null;
 }
 
+// ---------- optional: Claude suggests the first step when a student presses "I'm stuck" ----------
+// The Mac app cannot ship an API key, so a signed-in app asks the server. Only the task name, the course and the
+// previous step leave the Mac; the app falls back to fixed steps on any error.
+
+const MAX_STEPS_PER_USER_PER_DAY = Number(env.MAX_STEPS_PER_USER_PER_DAY || 40);
+const MAX_STEPS_PER_DAY = Number(env.MAX_STEPS_PER_DAY || 3000);
+
+const STEP_SYSTEM_PROMPT = [
+  'You help a university student who feels stuck and cannot start a task.',
+  'Reply with exactly one tiny, concrete first action they can do at their computer within the given minutes.',
+  'Start with a verb. Under 25 words. No lists, no plans, no pep talk, no medical or therapy language.',
+  'Only mention files, pages or details that are clearly implied by the task text; never invent links or file names.',
+  'If the task is vague, suggest a step that makes it clearer.',
+  'If this is a retry, make the action clearly smaller and easier than the previous one.',
+].join(' ');
+
+const STEP_SCHEMA = {
+  type: 'object',
+  properties: { step: { type: 'string' }, minutes: { type: 'integer' } },
+  required: ['step', 'minutes'],
+  additionalProperties: false,
+};
+
+const oneLine = (value, max) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
+
+async function claudeFirstStep(body) {
+  const task = oneLine(body.task, 300);
+  if (!task) throw httpError(400, 'Missing task.');
+  const attempt = Math.max(1, Math.min(10, Math.round(Number(body.attempt) || 1)));
+  const lines = [`Task: ${task}`];
+  const course = oneLine(body.course, 100);
+  if (course) lines.push(`Course: ${course}`);
+  lines.push('Minutes available: 5');
+  const previous = oneLine(body.previous_step, 300);
+  if (attempt > 1 && previous) lines.push(`Retry ${attempt}. This step was still too big: "${previous}"`);
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: env.ANTHROPIC_MODEL || 'claude-haiku-5-5',
+      max_tokens: 200,
+      system: STEP_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: lines.join('\n') }],
+      output_config: { format: { type: 'json_schema', schema: STEP_SCHEMA } },
+    }),
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!res.ok) throw httpError(502, `Claude answered ${res.status}`);
+  const data = await res.json();
+  if (data.stop_reason === 'refusal' || data.stop_reason === 'max_tokens') throw httpError(502, `Claude stopped early (${data.stop_reason})`);
+  const text = (data.content || []).find((c) => c.type === 'text')?.text;
+  let value;
+  try { value = JSON.parse(text || ''); } catch { throw httpError(502, 'Claude did not answer with a step'); }
+  const step = oneLine(value.step, 1000);
+  if (!step || step.length > 240) throw httpError(502, 'Claude did not answer with a usable step');
+  const minutes = Math.min(10, Math.max(2, Math.round(Number(value.minutes) || 5)));
+  return { step, minutes };
+}
+
 // ---------- optional: read Canvas directly, so the call works even when the Mac is off ----------
 // Set CANVAS_TOKEN (bCourses access token) or CANVAS_FEED_URL (bCourses calendar feed link).
 
@@ -680,7 +740,7 @@ async function route(req, res) {
       cartesiaNumber: !!env.CARTESIA_PHONE_NUMBER_ID,
       cartesiaToolSecret: !!env.CARTESIA_WEBHOOK_SECRET,
       cartesiaStuckAgent: !!env.CARTESIA_STUCK_AGENT_ID,
-      features: stuckCallReady() ? ['stuck-call'] : [],
+      features: [...(stuckCallReady() ? ['stuck-call'] : []), ...(env.ANTHROPIC_API_KEY ? ['first-step'] : [])],
       users: Object.keys(data.users).length,
       signupsOpen: signupsOpen(),
       inviteRequired: !openSignups() && !!env.REGISTER_CODE,
@@ -735,6 +795,21 @@ async function route(req, res) {
       return send(res, 200, { ok: true, count: u.tasks.length });
     }
     if (p === '/api/today' && m === 'GET') return send(res, 200, todayResponse(u));
+    if (p === '/api/first-step' && m === 'POST') {
+      if (!env.ANTHROPIC_API_KEY) throw httpError(503, 'This call server has no Claude key.');
+      let body;
+      try { body = JSON.parse((await readBody(req)) || '{}'); } catch { throw httpError(400, 'The request body is not valid JSON.'); }
+      const date = localDate(u);
+      if (!u.steps || u.steps.date !== date) u.steps = { date, count: 0 };
+      if (u.steps.count >= MAX_STEPS_PER_USER_PER_DAY) throw httpError(429, 'Too many steps today.');
+      const g = globalToday();
+      if ((g.steps || 0) >= MAX_STEPS_PER_DAY) throw httpError(429, 'The server reached its daily step limit.');
+      const result = await claudeFirstStep(body);
+      u.steps.count += 1;
+      g.steps = (g.steps || 0) + 1;
+      save();
+      return send(res, 200, result);
+    }
     if (p === '/api/tasks' && m === 'GET') {
       await refreshCanvas(u);
       return send(res, 200, { tasks: u.tasks });

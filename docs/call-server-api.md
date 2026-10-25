@@ -42,6 +42,15 @@ If no step arrives within 4 minutes, or the call fails, the app falls back to th
 Desktop side: `src/main/controller.ts` (`stuckCall`, `stepFromCall`) and `src/services/callServer.ts`.
 Agent setup: [`CARTESIA-SETUP.md`](CARTESIA-SETUP.md#6-the-stuck-call-agent).
 
+## Claude's first step
+
+The downloaded Mac app ships no API key, so when a signed-in student presses **I'm stuck** it asks the server.
+
+| Part | Detail |
+|---|---|
+| `GET /api/health` | `"features"` contains `"first-step"` when `ANTHROPIC_API_KEY` is set |
+| `POST /api/first-step` | student token; body `{ "task", "course", "attempt", "previous_step" }` (no URLs) → `{ "step", "minutes" }` from Claude (`ANTHROPIC_MODEL`, structured output). 503 without a key, 429 over the daily caps (`MAX_STEPS_PER_USER_PER_DAY` 40, `MAX_STEPS_PER_DAY` 3000), 502 if Claude fails. The app falls back to fixed steps on any error |
+
 ## Cartesia agent tool
 
 | Path | When |

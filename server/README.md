@@ -47,7 +47,7 @@ if not, run this folder on Replit instead (it follows the same API, see `../docs
    | `USER_PHONE_NUMBER` | the phone to call (on trial accounts it must be your verified number) |
    | `APP_API_KEY` | any long password: the **owner's** key (your own app uses it) |
    | `REGISTER_CODE` | the invite code friends type in the app to sign up. Without it nobody can sign up |
-   | `ANTHROPIC_API_KEY` | optional: Claude makes the call sound less scripted |
+   | `ANTHROPIC_API_KEY` | optional but recommended: Claude writes the first step when a student presses "I'm stuck" (the downloaded Mac app ships no key and asks the server), and makes the scripted Telnyx/Twilio call sound less scripted |
    | `CANVAS_TOKEN` | optional: bCourses access token, so the call reads your deadlines even when the Mac app is closed |
    | `CANVAS_FEED_URL` | optional, instead of the token: the bCourses calendar feed link |
    | `PUBLIC_URL` | recommended after publishing: your deployment URL, e.g. `https://concentr8.replit.app` |
@@ -73,7 +73,8 @@ The server finds its own public address on Replit. Elsewhere, set `PUBLIC_URL`.
 | `TELNYX_VOICE_KEY_REF` | none | Telnyx integration-secret name holding your ElevenLabs key (needs a paid ElevenLabs plan) |
 | `TWILIO_VOICE` | | old name of `CALL_VOICE` |
 | `VALIDATE_TWILIO_SIGNATURE` | off | set `true` to reject webhooks not signed by Twilio |
-| `ANTHROPIC_MODEL` | `claude-haiku-5-5` | model for the optional natural replies |
+| `ANTHROPIC_MODEL` | `claude-haiku-5-5` | model for first steps and the optional natural replies |
+| `MAX_STEPS_PER_USER_PER_DAY` / `MAX_STEPS_PER_DAY` | `40` / `3000` | caps on Claude first steps, to protect the API credits |
 
 ## Many students
 

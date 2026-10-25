@@ -116,6 +116,16 @@ export class CallServerClient {
     return this.request('GET', '/api/today');
   }
 
+  /** Claude's first step for "I'm stuck", asked through the server (the app ships no API key). */
+  firstStep(input: { task: string; course: string | null; attempt: number; previousStep: string | null }): Promise<{ step: string; minutes: number }> {
+    return this.request('POST', '/api/first-step', {
+      task: input.task,
+      course: input.course,
+      attempt: input.attempt,
+      previous_step: input.previousStep,
+    });
+  }
+
   callNow(request: CallRequest = {}): Promise<{ ok: boolean; callSid: string }> {
     return this.request('POST', '/api/call-now', request);
   }

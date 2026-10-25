@@ -1,6 +1,7 @@
 // "I'm stuck": turns the student's task into one tiny first step.
-// Claude suggests it when ANTHROPIC_API_KEY is set; otherwise (or on any failure) a fixed step is used,
-// so the flow always completes, offline included.
+// Claude suggests it: directly when ANTHROPIC_API_KEY is set (development), otherwise through the call server once
+// the student is signed in (the downloaded app ships no key). On any failure a fixed step is used, so the flow
+// always completes, offline included.
 
 import type { FirstStep } from '../shared/types';
 
@@ -124,6 +125,29 @@ export class ClaudeStepProvider implements StepProvider {
     const text = data.content?.find((block) => block.type === 'text')?.text;
     if (!text) throw new Error('Claude response did not include text');
     return parseStep(text);
+  }
+}
+
+/** The part of the call-server client this needs (kept narrow so tests can fake it). */
+export interface StepServer {
+  firstStep(input: { task: string; course: string | null; attempt: number; previousStep: string | null }): Promise<{ step: string; minutes: number }>;
+}
+
+/** Claude through the call server. Sends only the task, course and previous step, like the direct provider. */
+export class ServerStepProvider implements StepProvider {
+  readonly name = 'claude-via-server';
+  readonly model = 'server';
+
+  constructor(private readonly server: StepServer) {}
+
+  async suggest(input: StepInput): Promise<{ text: string; minutes: number }> {
+    const answer = await this.server.firstStep({
+      task: input.task,
+      course: input.course,
+      attempt: input.attempt,
+      previousStep: input.previousStep,
+    });
+    return parseStep(JSON.stringify({ step: answer?.step, minutes: answer?.minutes }));
   }
 }
 

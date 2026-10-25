@@ -25,7 +25,14 @@ const { server, data } = require('../index.js');
 const cartesiaCalls = [];
 let cartesiaAnswer = (body) => ({ status: 200, json: { calls: [{ agent_call_id: 'call_1' }] } });
 const realFetch = globalThis.fetch;
+const claudeCalls = [];
+let claudeAnswer = () => ({ status: 200, json: { stop_reason: 'end_turn', content: [{ type: 'text', text: '{"step":"Open search.py and read the comment above depthFirstSearch.","minutes":5}' }] } });
 globalThis.fetch = async (url, opts) => {
+  if (String(url).startsWith('https://api.anthropic.com/')) {
+    claudeCalls.push({ headers: opts.headers, body: JSON.parse(opts.body) });
+    const a = claudeAnswer();
+    return new Response(JSON.stringify(a.json), { status: a.status });
+  }
   if (String(url).startsWith('https://api.cartesia.ai/')) {
     cartesiaCalls.push({ url: String(url), headers: opts.headers, body: opts.body ? JSON.parse(opts.body) : null });
     const a = cartesiaAnswer(opts.body ? JSON.parse(opts.body) : null);
@@ -185,4 +192,40 @@ test('a call-now body that is not JSON is refused', async () => {
   const s = await signup('4155550000');
   const r = await fetch(base + '/api/call-now', { method: 'POST', headers: { Authorization: `Bearer ${s.token}`, 'Content-Type': 'application/json' }, body: '{oops' });
   assert.equal(r.status, 400);
+});
+
+// ---------- Claude's first step for "I'm stuck" (the Mac app ships no API key) ----------
+
+test('first step: Claude through the server, only for signed-in students, with a daily cap', async () => {
+  const s = await signup('4155551212');
+  delete process.env.ANTHROPIC_API_KEY;
+  assert.equal((await post('/api/first-step', { task: 'Project 2' }, s.token)).status, 503, 'no key, no Claude');
+  let h = await (await fetch(base + '/api/health')).json();
+  assert.ok(!h.features.includes('first-step'));
+
+  process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+  try {
+    h = await (await fetch(base + '/api/health')).json();
+    assert.ok(h.features.includes('first-step'));
+    assert.equal((await post('/api/first-step', { task: 'Project 2' })).status, 401, 'needs a student token');
+
+    claudeCalls.length = 0;
+    const r = await post('/api/first-step', { task: 'Project 2', course: 'COMPSCI 188', attempt: 2, previous_step: 'Read the spec' }, s.token);
+    assert.equal(r.status, 200);
+    assert.deepEqual(await r.json(), { step: 'Open search.py and read the comment above depthFirstSearch.', minutes: 5 });
+    const sent = claudeCalls[0];
+    assert.equal(sent.headers['x-api-key'], 'sk-ant-test');
+    assert.ok(sent.body.output_config.format.schema, 'structured output');
+    assert.match(sent.body.messages[0].content, /Task: Project 2\nCourse: COMPSCI 188/);
+    assert.match(sent.body.messages[0].content, /Retry 2\. This step was still too big: "Read the spec"/);
+
+    assert.equal((await post('/api/first-step', { course: 'x' }, s.token)).status, 400, 'a task is required');
+    claudeAnswer = () => ({ status: 200, json: { stop_reason: 'end_turn', content: [{ type: 'text', text: 'not json' }] } });
+    assert.equal((await post('/api/first-step', { task: 'Project 2' }, s.token)).status, 502, 'a broken answer is an error, so the app falls back');
+    claudeAnswer = () => ({ status: 529, json: {} });
+    assert.equal((await post('/api/first-step', { task: 'Project 2' }, s.token)).status, 502);
+
+    data.users[s.userId].steps = { date: data.users[s.userId].steps.date, count: 40 };
+    assert.equal((await post('/api/first-step', { task: 'Project 2' }, s.token)).status, 429, 'daily cap per student');
+  } finally { delete process.env.ANTHROPIC_API_KEY; }
 });
