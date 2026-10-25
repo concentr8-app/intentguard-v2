@@ -253,7 +253,7 @@ test('first step: Claude through the server, only for signed-in students, with a
 });
 
 test('claudeOpeningLine: uses Claude when it answers well, falls back to the fixed greeting otherwise', async () => {
-  const { claudeOpeningLine, openingLine } = require('../index.js');
+  const { claudeOpeningLine, openingLine, greetingFor } = require('../index.js');
   const u = { id: 'x', timezone: 'America/Los_Angeles', tasks: [{ title: 'Problem Set 4', course: 'CS 188', dueAt: new Date(Date.now() + 864e5).toISOString() }] };
   const saved = process.env.ANTHROPIC_API_KEY;
   try {
@@ -262,6 +262,7 @@ test('claudeOpeningLine: uses Claude when it answers well, falls back to the fix
     process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
     claudeAnswer = () => ({ status: 200, json: { content: [{ type: 'text', text: 'Good morning, this is Concentr8. Problem Set 4 is due tomorrow. Which task will you start, and when?' }] } });
     assert.match(await claudeOpeningLine(u), /Problem Set 4 is due tomorrow/);
+    assert.ok(claudeCalls.at(-1).body.system.includes(`Start with "${greetingFor(u)}, this is Concentr8."`), 'greeting follows the call time');
     claudeAnswer = () => ({ status: 200, json: { content: [{ type: 'text', text: 'Hello there.' }] } });
     assert.equal(await claudeOpeningLine(u), openingLine(u), 'no question at the end: fixed greeting');
     claudeAnswer = () => ({ status: 500, json: {} });
@@ -336,4 +337,12 @@ test('health shows whether Claude works, per feature, without any secret', async
   } finally {
     if (saved === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = saved;
   }
+});
+
+test("greetingFor: the greeting follows the student's local time", () => {
+  const { greetingFor } = require('../index.js');
+  const u = { timezone: 'America/Los_Angeles' };
+  assert.equal(greetingFor(u, new Date('2026-10-25T16:00:00Z')), 'Good morning'); // 9:00 in Berkeley
+  assert.equal(greetingFor(u, new Date('2026-10-25T21:00:00Z')), 'Hi'); // 14:00
+  assert.equal(greetingFor(u, new Date('2026-10-26T01:00:00Z')), 'Good evening'); // 18:00
 });
