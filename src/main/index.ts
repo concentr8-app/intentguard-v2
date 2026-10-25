@@ -15,6 +15,27 @@ import { Store } from './store';
 let win: BrowserWindow | null = null;
 let calmWin: BrowserWindow | null = null;
 let tray: Tray | null = null;
+type Icon = ReturnType<typeof nativeImage.createEmpty>;
+let trayIcons: { idle: Icon; focus: Icon } | null = null;
+let trayFocused: boolean | null = null;
+
+/**
+ * The menu-bar bear: an outline bear when idle, a filled bear during a focus session. On macOS these are template
+ * images, so they turn white in a dark menu bar by themselves; Windows and Linux get the colored bear.
+ */
+function loadTrayIcons() {
+  const dir = path.join(__dirname, '..', '..', 'renderer', 'assets');
+  if (process.platform !== 'darwin') {
+    const color = nativeImage.createFromPath(path.join(dir, 'trayColor.png'));
+    return { idle: color, focus: color };
+  }
+  const template = (file: string) => {
+    const image = nativeImage.createFromPath(path.join(dir, file)); // trayTemplate@2x.png is picked up on Retina
+    image.setTemplateImage(true);
+    return image;
+  };
+  return { idle: template('trayTemplate.png'), focus: template('trayFocusTemplate.png') };
+}
 let controller: Controller | null = null;
 let quitting = false;
 
@@ -151,12 +172,17 @@ function formatRemaining(state: AppState): string {
   const ms = Date.parse(s.endsAt) - Date.now();
   const min = Math.max(0, Math.ceil(ms / 60_000));
   const onBreak = s.breakUntil && Date.parse(s.breakUntil) > Date.now();
-  return onBreak ? `☕ ${min}m` : `● ${min}m`;
+  return onBreak ? `☕ ${min}m` : `${min}m`;
 }
 
 function updateTray(state: AppState) {
   if (!tray) return;
-  tray.setTitle(state.session ? `${formatRemaining(state)}  ${truncate(state.session.task, 22)}` : 'C8');
+  const focused = !!state.session;
+  if (trayIcons && focused !== trayFocused) {
+    tray.setImage(focused ? trayIcons.focus : trayIcons.idle);
+    trayFocused = focused;
+  }
+  tray.setTitle(state.session ? ` ${formatRemaining(state)}  ${truncate(state.session.task, 22)}` : '');
   tray.setToolTip(state.session ? `Focus: ${state.session.task}` : 'Concentr8');
   tray.setContextMenu(
     Menu.buildFromTemplate([
@@ -256,7 +282,8 @@ app.whenReady().then(() => {
   });
   registerIpc(controller);
 
-  tray = new Tray(nativeImage.createEmpty());
+  trayIcons = loadTrayIcons();
+  tray = new Tray(trayIcons.idle);
   createWindow();
   controller.start();
   updateTray(controller.getState());
