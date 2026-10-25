@@ -104,7 +104,7 @@ test('wrong or missing tokens are refused; the owner key still works', async () 
   assert.equal((await api('/api/me', { key: 'owner-key' })).status, 200);
 });
 
-test('a call goes to that student, with their id in the webhook URL, and is capped per day', async () => {
+test('manual calls repeat without re-registration until the per-user daily cap', async () => {
   const c = await signup('4155553333');
   calls.length = 0;
   assert.equal((await api('/api/call-now', { method: 'POST', key: c.token, body: {} })).status, 200);
@@ -141,6 +141,10 @@ test('the scheduler calls each student at their own local time, once a day, neve
   assert.equal(calls.length, 1);
   assert.equal(calls[0].To, '+14155555555');
   assert.equal(schedulerTick(), 0, 'only once a day');
+
+  assert.equal((await api('/api/call-now', { method: 'POST', key: e.token, body: {} })).status, 200, 'manual call still works after the scheduled call');
+  assert.equal(schedulerTick(), 0, 'manual calls do not unlock another scheduled call');
+  assert.equal((await api('/api/call-now', { method: 'POST', key: e.token, body: {} })).status, 429, 'scheduled and manual calls share the safety cap');
 });
 
 test('a stranger who phones our number is told to sign up', async () => {

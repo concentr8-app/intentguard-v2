@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
 import { test } from 'node:test';
 
 interface ActivityView {
@@ -26,4 +28,13 @@ test('activity view exposes the page title and complete URL', () => {
       url,
     },
   );
+});
+
+test('connected call settings keep Call me now available after a completed call', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../../renderer/index.html'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '../../renderer/app.js'), 'utf8');
+
+  assert.match(html, /id="connected-block"[\s\S]*id="call-now-settings"/);
+  assert.match(app, /\$\('call-now-settings'\)\.addEventListener/);
+  assert.match(app, /requestCallNow\(\$\('call-now-status'\)\)/);
 });

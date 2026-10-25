@@ -358,6 +358,7 @@ function openSettings() {
   $('own-server').hidden = s.serverConnected;
   $('signup-error').textContent = '';
   $('delete-error').textContent = '';
+  $('call-now-status').textContent = '';
   $('invite-code').value = '';
   $('call-consent').checked = false;
   $('server-error').textContent = '';
@@ -484,15 +485,22 @@ $('change-plan').addEventListener('click', () => {
 });
 
 $('start-focus').addEventListener('click', () => c8.startFocus());
-$('call-now').addEventListener(
+async function requestCallNow(status) {
+  if (status) status.textContent = '';
+  const r = await c8.callNow();
+  if (!r.ok) {
+    state.notice = r.error;
+    if (status) status.textContent = r.error;
+    paint();
+  } else if (status) {
+    status.textContent = 'Calling your phone now…';
+  }
+}
+
+$('call-now').addEventListener('click', busy($('call-now'), () => requestCallNow()));
+$('call-now-settings').addEventListener(
   'click',
-  busy($('call-now'), async () => {
-    const r = await c8.callNow();
-    if (!r.ok) {
-      state.notice = r.error;
-      paint();
-    }
-  }),
+  busy($('call-now-settings'), () => requestCallNow($('call-now-status'))),
 );
 $('im-stuck').addEventListener('click', () => c8.imStuck());
 $('stuck-actions').addEventListener('click', (e) => {
