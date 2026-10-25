@@ -535,7 +535,7 @@ export class Controller {
       this.focus.takeBreak(5);
       return;
     }
-    if (!episode.step) return; // a smaller step is already on its way (double click)
+    if (!episode.step || !episode.step.canRequestSmaller) return; // loading, or the fixed ladder is exhausted
     const previous = episode.step.text;
     episode.phase = 'step';
     episode.step = null;
@@ -743,7 +743,7 @@ export class Controller {
           ? Date.parse(at) >= Date.parse(episode.callStartedAt) // baseline unknown: best effort with this Mac's clock
           : base === null || Date.parse(at) > Date.parse(base);
       if (!fresh) return null;
-      return { text: text.slice(0, 240), minutes: 5, url: this.stepInput(null).taskUrl, source: 'call' };
+      return { text: text.slice(0, 240), minutes: 5, url: this.stepInput(null).taskUrl, source: 'call', canRequestSmaller: true };
     } catch {
       return null;
     }

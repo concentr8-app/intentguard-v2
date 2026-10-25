@@ -27,10 +27,10 @@ export interface StepProvider {
 
 /** Each retry gets smaller. Never depends on a network. */
 const FALLBACK_STEPS = [
-  'Open the assignment and read only the first paragraph. Nothing else.',
-  'Write one sentence: what would "done" look like for this task?',
-  'Open a blank page and type the task title at the top. That is all.',
-  'Set a 2-minute timer and just look at the task. You do not have to start yet.',
+  'Open the assignment and read only the first question or instruction.',
+  'Read only the first sentence of the task. Stop there.',
+  'Put the assignment on screen and find the first thing it asks you to do.',
+  'For two minutes, just keep the assignment open. You do not have to start yet.',
 ];
 
 export function fallbackStep(input: StepInput): FirstStep {
@@ -40,6 +40,7 @@ export function fallbackStep(input: StepInput): FirstStep {
     minutes: index === FALLBACK_STEPS.length - 1 ? 2 : DEFAULT_STEP_MINUTES,
     url: input.taskUrl,
     source: 'fallback',
+    canRequestSmaller: index < FALLBACK_STEPS.length - 1,
   };
 }
 
@@ -170,7 +171,7 @@ export async function suggestFirstStep(
   try {
     const step = await provider.suggest(input);
     log(`[stuck] step from provider=${provider.name} model=${provider.model}`);
-    return { ...step, url: input.taskUrl, source: 'claude' };
+    return { ...step, url: input.taskUrl, source: 'claude', canRequestSmaller: true };
   } catch (err) {
     log(`[stuck] provider failure (${(err as Error).message}); fixed step`);
     return fallbackStep(input);

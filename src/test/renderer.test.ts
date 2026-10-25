@@ -38,6 +38,16 @@ test('settings show the current app version', () => {
   assert.match(app, /Version \$\{state\.appVersion\}/);
 });
 
+test('stuck step explains the action and hides terminal fixed retries', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../../renderer/index.html'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '../../renderer/app.js'), 'utf8');
+
+  assert.match(html, /id="stuck-helper"/);
+  assert.match(html, /id="stuck-smaller"[\s\S]*Still stuck/);
+  assert.match(app, /Do this in your work\.[\s\S]*press I'm in\./);
+  assert.match(app, /stuck-smaller'\)\.hidden = !step \|\| !step\.canRequestSmaller/);
+});
+
 test('Call me now remains discoverable and disconnected users are sent to recovery', () => {
   const html = fs.readFileSync(path.join(__dirname, '../../renderer/index.html'), 'utf8');
   const app = fs.readFileSync(path.join(__dirname, '../../renderer/app.js'), 'utf8');

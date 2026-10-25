@@ -220,6 +220,8 @@ button:disabled { opacity: 0.5; cursor: default; }
   margin: calc(-1 * var(--s3)) 0 var(--s5);
 }
 .stuck-when:empty { display: none; }
+.stuck-helper { max-width: 52ch; margin: calc(-1 * var(--s4)) 0 var(--s5); color: var(--moss); font-size: 13px; }
+.stuck-helper:empty { display: none; }
 .stuck-foot { margin-top: var(--s5); display: flex; align-items: center; gap: var(--s4); font-size: 13px; }
 .stuck-foot a { font-weight: 600; }
 .stuck-foot .link { color: var(--moss); font-weight: 500; padding: 0; }
