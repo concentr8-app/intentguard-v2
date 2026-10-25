@@ -23,7 +23,7 @@ Supported by current code and the verification recorded below. Observer and inte
 - Semantic results use a `0.85` confidence threshold; uncertainty, low confidence, missing configuration, and API failures remain neutral.
 - Semantic classifications are cached by intent plus activity for the current session, preventing repeated calls from unchanged three-second polls.
 - Unpackaged Electron development loads an ignored root `.env` without overriding existing shell variables.
-- Explicit blank/new-tab browser activity remains neutral and bypasses semantic requests.
+- Explicit blank/new-tab browser activity, including Safari's start page (`favorites://`), remains neutral and bypasses semantic requests. Only `http(s)`/`file` pages are remembered and restored as the last work tab.
 - Direct bCourses sync and calendar-feed fallback.
 - Visible warning, grace period, and redirect/restore behavior for configured distractions.
 - Intentional breaks pause interventions and can be ended to resume monitoring.

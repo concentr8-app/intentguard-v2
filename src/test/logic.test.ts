@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { Activity, Task } from '../shared/types';
-import { classify, DEFAULT_RULES, matchesDomainRule } from '../services/rules';
+import { classify, DEFAULT_RULES, isBlankBrowserActivity, matchesDomainRule } from '../services/rules';
 import { localDate, localHHMM, parseSpokenTime } from '../services/time';
 import { matchTask } from '../services/match';
 import { isFeedUrl, nextLink, normalizePlannerItems, parseIcsTasks } from '../services/canvas';
@@ -239,6 +239,63 @@ test('FocusEngine: nudge, then block and restore the last work tab', async () =>
 
   const summary = engine.stop();
   assert.equal(summary?.blocks, 3);
+});
+
+test("classify: Safari's start page is a blank tab, not activity", () => {
+  for (const url of ['favorites://', 'topsites://']) {
+    const activity = act('Safari', url, 'Start Page');
+    assert.ok(isBlankBrowserActivity(activity), url); // also skips semantic requests
+    assert.equal(classify(context(activity, 'CS 188'), DEFAULT_RULES).kind, 'neutral', url);
+  }
+});
+
+test('FocusEngine: never sends Safari back to its start page', async () => {
+  let clock = 1_000_000;
+  const screen = { current: act('Safari', 'favorites://', 'Start Page') };
+  const { platform, calls } = fakePlatform(screen);
+  const engine = new FocusEngine({
+    platform,
+    notify: () => {},
+    onChange: () => {},
+    rules: () => DEFAULT_RULES,
+    graceSeconds: () => 15,
+    fallbackUrl: () => null,
+    now: () => clock,
+  });
+  const assignment = 'https://bcourses.berkeley.edu/courses/1/assignments/8';
+  engine.start('CS 188 Project 2', assignment, 50);
+
+  await engine.tick(); // Safari start page: must not become the "last work tab"
+  screen.current = act('Safari', 'https://www.youtube.com/', 'YouTube');
+  clock += 3_000;
+  await engine.tick(); // nudge
+  clock += 16_000;
+  await engine.tick(); // block -> the assignment, not favorites://
+  assert.deepEqual(calls, [`redirect ${assignment}`]);
+});
+
+test('FocusEngine: with no work page to go back to, the distracting tab is closed', async () => {
+  let clock = 1_000_000;
+  const screen = { current: act('Safari', 'favorites://', 'Start Page') };
+  const { platform, calls } = fakePlatform(screen);
+  const engine = new FocusEngine({
+    platform,
+    notify: () => {},
+    onChange: () => {},
+    rules: () => DEFAULT_RULES,
+    graceSeconds: () => 15,
+    fallbackUrl: () => null,
+    now: () => clock,
+  });
+  engine.start('cs 188', null, 50); // typed task, no bCourses
+
+  await engine.tick();
+  screen.current = act('Safari', 'https://www.youtube.com/', 'YouTube');
+  clock += 3_000;
+  await engine.tick();
+  clock += 16_000;
+  await engine.tick();
+  assert.deepEqual(calls, ['close']);
 });
 
 test('FocusEngine: neutral activity is never blocked', async () => {
