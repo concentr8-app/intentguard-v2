@@ -47,6 +47,7 @@ if not, run this folder on Replit instead (it follows the same API, see `../docs
    | `USER_PHONE_NUMBER` | the phone to call (on trial accounts it must be your verified number) |
    | `APP_API_KEY` | any long password: the **owner's** key (your own app uses it) |
    | `REGISTER_CODE` | the invite code friends type in the app to sign up. Without it nobody can sign up |
+   | `RECOVERY_CODE` | a separate long code the team can give a student whose Mac lost its token. In open-signup mode it is required before an existing phone number receives a replacement token |
    | `ANTHROPIC_API_KEY` | optional but recommended: Claude writes the first step when a student presses "I'm stuck" (the downloaded Mac app ships no key and asks the server), and makes the scripted Telnyx/Twilio call sound less scripted |
    | `CANVAS_TOKEN` | optional: bCourses access token, so the call reads your deadlines even when the Mac app is closed |
    | `CANVAS_FEED_URL` | optional, instead of the token: the bCourses calendar feed link |
@@ -104,4 +105,4 @@ curl -H "Authorization: Bearer test" localhost:3000/api/today
 ## Who may sign up
 
 `OPEN_SIGNUPS=true`: anyone, no code. `REGISTER_CODE=<word>`: only people with the code. Neither: closed.
-Open mode has no phone verification yet: someone could enter a stranger's number and the server would call it (the daily caps limit the damage), and a number that is already signed up cannot sign up again (HTTP 409), so nobody can take over an account.
+Open mode has no phone verification yet: someone could enter a stranger's number and the server would call it (the daily caps limit the damage). An existing number receives HTTP 409 unless the student enters the operator-provided `RECOVERY_CODE`; successful recovery replaces the old token.

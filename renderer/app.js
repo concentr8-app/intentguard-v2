@@ -151,7 +151,7 @@ function paintToday() {
       when = 'No start time yet. Start whenever you are ready.';
     }
     $('said-when').textContent = when;
-    $('call-now').hidden = !settings.serverConnected;
+    $('call-now').hidden = false;
   }
 
   if (showSession && !stuck) paintSession();
@@ -392,7 +392,7 @@ const lines = (id) =>
     .map((l) => l.trim())
     .filter(Boolean);
 
-async function saveSettings() {
+async function saveSettings(callServerConnected = state.settings.serverConnected) {
   const grace = Number($('grace').value);
   const minutes = Number($('session-minutes').value);
   await c8.saveSettings({
@@ -406,7 +406,9 @@ async function saveSettings() {
       allowedDomains: lines('allowed-domains'),
     },
   });
-  $('saved-note').textContent = 'Saved';
+  $('saved-note').textContent = callServerConnected
+    ? 'Saved'
+    : 'Saved locally. Reconnect morning calls to update your call time.';
 }
 
 // ---------- events ----------
@@ -487,6 +489,11 @@ $('change-plan').addEventListener('click', () => {
 $('start-focus').addEventListener('click', () => c8.startFocus());
 async function requestCallNow(status) {
   if (status) status.textContent = '';
+  if (!state.settings.serverConnected) {
+    openSettings();
+    $('signup-error').textContent = 'Reconnect morning calls first. If this number is already registered, enter the recovery code from the Concentr8 team.';
+    return;
+  }
   const r = await c8.callNow();
   if (!r.ok) {
     state.notice = r.error;
@@ -562,13 +569,19 @@ $('server-form').addEventListener('submit', async (e) => {
   const r = await c8.connectServer($('server-url').value.trim(), key);
   if (!r.ok) $('server-error').textContent = r.error;
   else {
-    await saveSettings(); // also sends phone number and call time to the server
+    await saveSettings(true); // also sends phone number and call time to the server
     $('server-key').value = '';
     $('server-disconnect').hidden = false;
     $('saved-note').textContent = 'Server connected';
   }
 });
 $('server-disconnect').addEventListener('click', async () => {
+  if (
+    !window.confirm(
+      "Forget this Mac's call connection? You will need the recovery code to reconnect, change the call time, or call again.",
+    )
+  )
+    return;
   await c8.disconnectServer();
   $('signup-form').hidden = false;
   $('connected-block').hidden = true;
@@ -592,7 +605,7 @@ $('signup-form').addEventListener(
       $('signup-error').textContent = r.error;
       return;
     }
-    await saveSettings();
+    await saveSettings(true);
     $('signup-form').hidden = true;
     $('connected-block').hidden = false;
     $('own-server').hidden = true;

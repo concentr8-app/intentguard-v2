@@ -24,6 +24,7 @@ Settings → **Configuration**:
 | `DATA_FILE` | `/home/data/data.json` (`/home` is the persistent folder on Linux App Service, unverified) |
 | `APP_API_KEY` | a new long random string (owner key) |
 | `OPEN_SIGNUPS` | `true` = anyone can sign up without a code. Instead of it, `REGISTER_CODE` = an invite code |
+| `RECOVERY_CODE` | a separate long code used only to reconnect an existing phone number after its Mac loses the saved token |
 | `PUBLIC_URL` | `https://<name>.azurewebsites.net` |
 | `CARTESIA_API_KEY`, `CARTESIA_AGENT_ID`, `CARTESIA_PHONE_NUMBER_ID`, `CARTESIA_WEBHOOK_SECRET` | see `CARTESIA-SETUP.md` |
 | `CARTESIA_STUCK_AGENT_ID` (optional) | the stuck-call agent, see `CARTESIA-SETUP.md` step 6 |

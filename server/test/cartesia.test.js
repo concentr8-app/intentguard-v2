@@ -122,15 +122,34 @@ test('"stop calling me" through the tool pauses the morning calls', async () => 
   assert.equal(data.users[a.userId].paused, true);
 });
 
-test('open sign-ups: no invite code needed, but an existing number cannot be taken over', async () => {
+test('open sign-ups: existing numbers require the private recovery code', async () => {
   process.env.OPEN_SIGNUPS = 'true';
+  process.env.RECOVERY_CODE = 'recover-existing-account';
   try {
-    const reg = (phone) => fetch(`${base}/api/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phoneNumber: phone, consent: true }) });
+    const reg = (phone, extra = {}) =>
+      fetch(`${base}/api/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phoneNumber: phone, consent: true, ...extra }),
+      });
     const a = await reg('+14155550111');
     assert.equal(a.status, 200);
-    assert.ok((await a.json()).token);
+    const first = await a.json();
+    assert.ok(first.token);
     assert.equal((await reg('+14155550111')).status, 409);
-  } finally { delete process.env.OPEN_SIGNUPS; }
+    assert.equal((await reg('+14155550111', { inviteCode: 'wrong' })).status, 409);
+
+    const recovered = await reg('+14155550111', { inviteCode: 'recover-existing-account', callTime: '09:45' });
+    assert.equal(recovered.status, 200);
+    const replacement = await recovered.json();
+    assert.notEqual(replacement.token, first.token);
+    assert.equal((await fetch(`${base}/api/me`, { headers: { Authorization: `Bearer ${first.token}` } })).status, 401);
+    const me = await (await fetch(`${base}/api/me`, { headers: { Authorization: `Bearer ${replacement.token}` } })).json();
+    assert.equal(me.callTime, '09:45');
+  } finally {
+    delete process.env.OPEN_SIGNUPS;
+    delete process.env.RECOVERY_CODE;
+  }
 });
 
 // ---------- the stuck call ("I'm stuck" → "Talk it through on the phone") ----------
