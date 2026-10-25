@@ -8,8 +8,16 @@
 </head>
 <body>
   <main class="calm">
-    <div class="orb" aria-hidden="true"><div class="orb-core"></div></div>
+    <div class="orb" aria-hidden="true">
+      <div class="orb-core" id="orb"></div>
+      <!-- Box breathing: the dot goes up (in), across (hold), down (out), back (hold). -->
+      <svg class="box" viewBox="0 0 100 100">
+        <rect x="4" y="4" width="92" height="92" rx="7"></rect>
+        <circle id="dot" cx="4" cy="96" r="1.8"></circle>
+      </svg>
+    </div>
     <p class="cue" id="cue" aria-live="polite">Breathe in</p>
+    <p class="count" id="count" aria-hidden="true">4</p>
     <p class="line">You don't have to finish anything right now.</p>
     <footer class="foot">
       <button type="button" id="ready">I'm ready</button>

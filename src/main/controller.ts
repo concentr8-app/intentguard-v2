@@ -52,7 +52,8 @@ const SERVER_POLL_MS = 60_000;
 const CANVAS_SYNC_MS = 15 * 60_000;
 const CLOCK_TICK_MS = 20_000;
 
-export const CALM_MS = 60_000;
+/** Four rounds of box breathing (16 s each) on the calm screen. */
+export const CALM_MS = 64_000;
 export const CALL_TIMEOUT_MS = 4 * 60_000;
 const CALL_POLL_MS = 5_000;
 /** This many separate drifts within the window and Concentr8 offers "I'm stuck". */
