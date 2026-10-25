@@ -248,8 +248,9 @@ test('first step: Claude through the server, only for signed-in students, with a
     claudeAnswer = () => ({ status: 529, json: {} });
     assert.equal((await post('/api/first-step', { task: 'Project 2' }, s.token)).status, 502);
 
-    data.users[s.userId].steps = { date: data.users[s.userId].steps.date, count: 40 };
-    assert.equal((await post('/api/first-step', { task: 'Project 2' }, s.token)).status, 429, 'daily cap per student');
+    claudeAnswer = () => ({ status: 200, json: { stop_reason: 'end_turn', content: [{ type: 'text', text: '{"step":"Open search.py.","minutes":4}' }] } });
+    data.users[s.userId].steps = { date: data.users[s.userId].steps.date, count: 500 };
+    assert.equal((await post('/api/first-step', { task: 'Project 2' }, s.token)).status, 200, 'no daily limit on steps');
   } finally { delete process.env.ANTHROPIC_API_KEY; }
 });
 

@@ -410,8 +410,6 @@ async function claudeSelfTest() {
 // The Mac app cannot ship an API key, so a signed-in app asks the server. Only the task name, the course and the
 // previous step leave the Mac; the app falls back to fixed steps on any error.
 
-const MAX_STEPS_PER_USER_PER_DAY = Number(env.MAX_STEPS_PER_USER_PER_DAY || 40);
-const MAX_STEPS_PER_DAY = Number(env.MAX_STEPS_PER_DAY || 3000);
 
 const STEP_SYSTEM_PROMPT = [
   'You help a university student who feels stuck and cannot start a task.',
@@ -659,11 +657,9 @@ function publicBase(req) {
 
 const openSignups = () => String(env.OPEN_SIGNUPS || '').toLowerCase() === 'true';
 const signupsOpen = () => openSignups() || !!env.REGISTER_CODE;
-const MAX_CALLS_PER_USER_PER_DAY = Number(env.MAX_CALLS_PER_USER_PER_DAY || 10);
-const MAX_CALLS_PER_DAY = Number(env.MAX_CALLS_PER_DAY || 300);
 const MAX_SIGNUPS_PER_DAY = Number(env.MAX_SIGNUPS_PER_DAY || 200);
 
-/** Counters for the global limits, reset at midnight UTC. */
+/** Daily counters (calls, sign-ups, steps), reset at midnight UTC. Only sign-ups have a limit. */
 function globalToday() {
   const date = new Date().toISOString().slice(0, 10);
   if (data.global.date !== date) data.global = { date, calls: 0, signups: 0 };
@@ -676,9 +672,7 @@ async function placeCall(req, u, opts = {}) {
   if (!to) throw httpError(400, 'No phone number to call. Set one in the app (Settings).');
   const date = localDate(u);
   if (u.calls.date !== date) u.calls = { date, count: 0 };
-  if (u.calls.count >= MAX_CALLS_PER_USER_PER_DAY) throw httpError(429, 'Too many calls today. Try again tomorrow.');
-  const g = globalToday();
-  if (g.calls >= MAX_CALLS_PER_DAY) throw httpError(429, 'The call server reached its daily limit. Try again tomorrow.');
+  const g = globalToday(); // counted, never limited: a student (or a demo) must always get the call they asked for
   const base = publicBase(req);
   const callId =
     PROVIDER === 'cartesia' ? await placeCartesiaCall(u, to, opts)
@@ -1127,9 +1121,7 @@ async function route(req, res) {
       try { body = JSON.parse((await readBody(req)) || '{}'); } catch { throw httpError(400, 'The request body is not valid JSON.'); }
       const date = localDate(u);
       if (!u.steps || u.steps.date !== date) u.steps = { date, count: 0 };
-      if (u.steps.count >= MAX_STEPS_PER_USER_PER_DAY) throw httpError(429, 'Too many steps today.');
-      const g = globalToday();
-      if ((g.steps || 0) >= MAX_STEPS_PER_DAY) throw httpError(429, 'The server reached its daily step limit.');
+      const g = globalToday(); // counted, never limited
       const result = await claudeFirstStep(body);
       u.steps.count += 1;
       g.steps = (g.steps || 0) + 1;

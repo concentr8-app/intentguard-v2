@@ -23,7 +23,7 @@ the student's own token (from `/api/register`), or `APP_API_KEY` for the server'
 | GET | `/cron/morning?key=<token>` | | same as call-now for that student |
 | GET | `/cron/tick?key=<APP_API_KEY>` | | runs the scheduler once for everyone (for hosts that sleep: an external cron opens it every few minutes); `{ "ok": true, "called": 2 }` |
 
-Limits: `MAX_CALLS_PER_USER_PER_DAY` (10), `MAX_CALLS_PER_DAY` (300), `MAX_SIGNUPS_PER_DAY` (200); over the limit the server answers `429`.
+Limits: only `MAX_SIGNUPS_PER_DAY` (200); over it the server answers `429`. Calls, first steps and relevance checks have no daily limit.
 Saying "stop" on the phone sets `paused`: no automatic calls until the student asks for a call again.
 
 `dueAt`, `lastCallAt`: ISO timestamps or `null`. `startTime` is what the student said, the Mac app parses it.
@@ -52,7 +52,7 @@ The downloaded Mac app ships no API key, so when a signed-in student presses **I
 | Part | Detail |
 |---|---|
 | `GET /api/health` | `"features"` contains `"first-step"` when `ANTHROPIC_API_KEY` is set |
-| `POST /api/first-step` | student token; body `{ "task", "course", "attempt", "previous_step" }` (no URLs) → `{ "step", "minutes" }` from Claude (`ANTHROPIC_MODEL`, structured output). 503 without a key, 429 over the daily caps (`MAX_STEPS_PER_USER_PER_DAY` 40, `MAX_STEPS_PER_DAY` 3000), 502 if Claude fails. The app falls back to fixed steps on any error |
+| `POST /api/first-step` | student token; body `{ "task", "course", "attempt", "previous_step" }` (no URLs) → `{ "step", "minutes" }` from Claude (`ANTHROPIC_MODEL`, structured output). 503 without a key, no daily limit, 502 if Claude fails. The app falls back to fixed steps on any error |
 
 ## Cartesia agent tool
 

@@ -15,7 +15,6 @@ process.env.TELNYX_ACCOUNT_SID = 'acct';
 process.env.TELNYX_APP_ID = 'app';
 process.env.TELNYX_PHONE_NUMBER = '+15106606154';
 process.env.USER_PHONE_NUMBER = '+13412197358';
-process.env.MAX_CALLS_PER_USER_PER_DAY = '2';
 delete process.env.ANTHROPIC_API_KEY;
 
 const { server, normalizePhone, schedulerTick, data } = require('../index.js');
@@ -104,14 +103,13 @@ test('wrong or missing tokens are refused; the owner key still works', async () 
   assert.equal((await api('/api/me', { key: 'owner-key' })).status, 200);
 });
 
-test('manual calls repeat without re-registration until the per-user daily cap', async () => {
+test('manual calls repeat without re-registration and without a daily limit', async () => {
   const c = await signup('4155553333');
   calls.length = 0;
   assert.equal((await api('/api/call-now', { method: 'POST', key: c.token, body: {} })).status, 200);
   assert.equal(calls[0].To, '+14155553333');
   assert.equal(calls[0].Url.includes(`/twilio/voice?u=${c.userId}`), true);
-  assert.equal((await api('/api/call-now', { method: 'POST', key: c.token, body: {} })).status, 200);
-  assert.equal((await api('/api/call-now', { method: 'POST', key: c.token, body: {} })).status, 429);
+  for (let i = 0; i < 15; i++) assert.equal((await api('/api/call-now', { method: 'POST', key: c.token, body: {} })).status, 200, `call ${i + 2}`);
 });
 
 test('saying "stop" pauses the morning calls; asking for a call again resumes', async () => {
@@ -145,7 +143,7 @@ test('the scheduler calls each student at their own local time, once a day, neve
 
   assert.equal((await api('/api/call-now', { method: 'POST', key: e.token, body: {} })).status, 200, 'manual call still works after the scheduled call');
   assert.equal(schedulerTick(), 0, 'manual calls do not unlock another scheduled call');
-  assert.equal((await api('/api/call-now', { method: 'POST', key: e.token, body: {} })).status, 429, 'scheduled and manual calls share the safety cap');
+  assert.equal((await api('/api/call-now', { method: 'POST', key: e.token, body: {} })).status, 200, 'no daily limit on calls');
 });
 
 test('a stranger who phones our number is told to sign up', async () => {
