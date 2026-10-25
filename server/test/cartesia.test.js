@@ -229,3 +229,22 @@ test('first step: Claude through the server, only for signed-in students, with a
     assert.equal((await post('/api/first-step', { task: 'Project 2' }, s.token)).status, 429, 'daily cap per student');
   } finally { delete process.env.ANTHROPIC_API_KEY; }
 });
+
+test('claudeOpeningLine: uses Claude when it answers well, falls back to the fixed greeting otherwise', async () => {
+  const { claudeOpeningLine, openingLine } = require('../index.js');
+  const u = { id: 'x', timezone: 'America/Los_Angeles', tasks: [{ title: 'Problem Set 4', course: 'CS 188', dueAt: new Date(Date.now() + 864e5).toISOString() }] };
+  const saved = process.env.ANTHROPIC_API_KEY;
+  try {
+    delete process.env.ANTHROPIC_API_KEY;
+    assert.equal(await claudeOpeningLine(u), openingLine(u), 'no key: fixed greeting');
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    claudeAnswer = () => ({ status: 200, json: { content: [{ type: 'text', text: 'Good morning, this is Concentr8. Problem Set 4 is due tomorrow. Which task will you start, and when?' }] } });
+    assert.match(await claudeOpeningLine(u), /Problem Set 4 is due tomorrow/);
+    claudeAnswer = () => ({ status: 200, json: { content: [{ type: 'text', text: 'Hello there.' }] } });
+    assert.equal(await claudeOpeningLine(u), openingLine(u), 'no question at the end: fixed greeting');
+    claudeAnswer = () => ({ status: 500, json: {} });
+    assert.equal(await claudeOpeningLine(u), openingLine(u), 'Claude error: fixed greeting');
+  } finally {
+    if (saved === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = saved;
+  }
+});
