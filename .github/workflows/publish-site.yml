@@ -1,0 +1,38 @@
+# Publishes the landing page (server/public/index.html) to https://concentr8.github.io whenever it changes on main,
+# so the Azure page and the GitHub Pages site are always the same page.
+#
+# One-time setup: a fine-grained token with "Contents: Read and write" on the repository concentr8/concentr8.github.io
+# (resource owner: concentr8), saved in this repo as the Actions secret SITE_TOKEN.
+name: Publish website
+on:
+  push:
+    branches: [main]
+    paths: ['server/public/**', '.github/workflows/publish-site.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  site:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish to concentr8.github.io
+        shell: bash
+        env:
+          SITE_TOKEN: ${{ secrets.SITE_TOKEN }}
+        run: |
+          if [[ -z "$SITE_TOKEN" ]]; then
+            echo "::warning::SITE_TOKEN is not set, so the website was not published. See the comment at the top of this workflow."
+            exit 0
+          fi
+          git clone --depth 1 "https://x-access-token:${SITE_TOKEN}@github.com/concentr8/concentr8.github.io.git" site
+          sed 's#{{DOWNLOAD_BASE}}#https://github.com/concentr8-app/concentr8/releases/latest/download#g' server/public/index.html > site/index.html
+          if grep -q '{{' site/index.html; then echo "::error::A {{placeholder}} is left in the page"; exit 1; fi
+          touch site/.nojekyll
+          cd site
+          git config user.name "concentr8-bot"
+          git config user.email "concentr8-bot@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then echo "The website is already up to date."; exit 0; fi
+          git commit -m "Website from ${GITHUB_REPOSITORY}@${GITHUB_SHA::7}"
+          git push origin HEAD:main
