@@ -222,9 +222,14 @@ function gather(u, step, attempt, prompt) {
 
 const twiml = (body) => `<?xml version="1.0" encoding="UTF-8"?><Response>${body}</Response>`;
 
+/** Students pick their own call time (many are at their best in the evening), so the greeting follows the clock. */
+function greetingFor(u, now = new Date()) {
+  const hour = Number(zoned(now, tzOf(u)).hour);
+  return hour < 12 ? 'Good morning' : hour < 18 ? 'Hi' : 'Good evening';
+}
+
 function openingLine(u) {
-  const hour = Number(zoned(new Date(), tzOf(u)).hour);
-  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Hi' : 'Good evening';
+  const greeting = greetingFor(u);
   const top = [...u.tasks]
     .sort((a, b) => (a.dueAt ? Date.parse(a.dueAt) : Infinity) - (b.dueAt ? Date.parse(b.dueAt) : Infinity))
     .slice(0, 3);
@@ -237,7 +242,7 @@ function openingLine(u) {
 }
 
 /**
- * Claude writes the morning greeting from the student's real deadlines. Any failure (no key, timeout, odd answer)
+ * Claude writes the call's greeting from the student's real deadlines. Any failure (no key, timeout, odd answer)
  * falls back to the fixed openingLine(u), so a call is never blocked by Claude.
  */
 async function claudeOpeningLine(u) {
@@ -256,10 +261,10 @@ async function claudeOpeningLine(u) {
         model: claudeModel(),
         max_tokens: 150,
         system:
-          'You write the first thing a voice assistant says on a morning phone call to a UC Berkeley student with ADHD. ' +
+          'You write the first thing a voice assistant says on a planning phone call to a UC Berkeley student with ADHD, at the time they chose. ' +
           'Goal: help them pick ONE task and a start time. Rules: at most 3 short spoken sentences, warm and calm, no pressure, ' +
           'no guilt, no lists, no emojis, no markdown. Name at most two tasks, the most urgent first. ' +
-          'Start with "Good morning, this is Concentr8." and end with a question asking which task they will start and when.',
+          `Start with "${greetingFor(u)}, this is Concentr8." and end with a question asking which task they will start and when.`,
         messages: [{ role: 'user', content: `Their tasks, most urgent first:\n${top}` }],
       }),
       signal: AbortSignal.timeout(6000),
@@ -1262,4 +1267,4 @@ if (require.main === module) {
   setInterval(() => void claudeSelfTest(), 12 * 60 * 60 * 1000).unref();
 }
 
-module.exports = { server, cleanAnswer, openingLine, claudeOpeningLine, claudeSelfTest, claudeStatus, spokenCourse, normalizePhone, schedulerTick, data };
+module.exports = { server, cleanAnswer, openingLine, claudeOpeningLine, greetingFor, claudeSelfTest, claudeStatus, spokenCourse, normalizePhone, schedulerTick, data };
