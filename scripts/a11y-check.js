@@ -34,6 +34,8 @@ function stub(state) {
 }
 
 async function audit(page, label) {
+  // Open every <details>, so hidden answers are checked too.
+  await page.evaluate(() => document.querySelectorAll('details').forEach((d) => { d.open = true; }));
   await page.addScriptTag({ content: axeSource });
   const result = await page.evaluate(async () => {
     const r = await window.axe.run(document, { runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa'] } });
@@ -65,6 +67,8 @@ async function audit(page, label) {
     for (const [who, userAgent, viewport] of [
       ['Mac', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15', { width: 1280, height: 800 }],
       ['Windows', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36', { width: 1280, height: 800 }],
+      ['a small laptop', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15', { width: 1024, height: 700 }],
+      ['a tablet', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15', { width: 768, height: 1024 }],
       ['phone', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1', { width: 390, height: 844 }],
     ]) {
       const c2 = await browser.newContext({ colorScheme: scheme, reducedMotion: 'reduce', bypassCSP: true, userAgent, viewport });
