@@ -16,7 +16,14 @@ jobs:
         with:
           node-version: 22
       - run: npm install
-      - run: npm run dist
+      - name: Build app
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
+            npm run dist -- --config.extraMetadata.version="${GITHUB_REF_NAME#v}"
+          else
+            npm run dist
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: Concentr8-mac

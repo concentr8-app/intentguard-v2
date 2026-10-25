@@ -32,6 +32,7 @@ import { localDate, localHHMM, parseSpokenTime } from '../services/time';
 import type { Store } from './store';
 
 export interface ControllerDeps {
+  appVersion?: string;
   store: Store;
   platform: Platform;
   notify(title: string, body: string): void;
@@ -164,6 +165,7 @@ export class Controller {
 
   getState(): AppState {
     return {
+      appVersion: this.deps.appVersion ?? 'development',
       settings: this.settings,
       tasks: this.store.tasks,
       lastSync: this.store.lastSync,

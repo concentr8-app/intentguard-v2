@@ -27,6 +27,7 @@ function setup(withServer: boolean) {
   const notes: string[] = [];
   let shown = 0;
   const controller = new Controller({
+    appVersion: '9.8.7',
     store,
     platform: createNullPlatform(),
     notify: (title) => notes.push(title),
@@ -42,6 +43,10 @@ function setup(withServer: boolean) {
     setClock: (iso: string) => (clock = Date.parse(iso)),
   };
 }
+
+test('app state exposes the Electron app version', () => {
+  assert.equal(setup(false).controller.getState().appVersion, '9.8.7');
+});
 
 function serveToday(
   t: { after(fn: () => void): void },
