@@ -355,6 +355,7 @@ test('the tools tell the agent the exact closing line (docs/CALL-SCRIPT.md)', as
   assert.match(await save({ task: 'Project 2', start_time: '9:30 a.m.' }), /say exactly: "Locked in: Project 2 at 9:30 a\.m\. Good luck\."/);
   assert.match(await save({ task: 'Project 2', start_time: 'now' }), /"Locked in: Project 2, starting now\. Good luck\."/);
   assert.match(await save({ first_step: 'Open the project and read only question 1.' }), /"Great\. Open the project and read only question 1\. It's on your Mac now, with a five-minute timer\. You've got this\."/);
+});
 
 test('/api/relevance: Claude judges an unclear page, only with intent, app, title and location', async () => {
   const s = await signup('4155555555');
