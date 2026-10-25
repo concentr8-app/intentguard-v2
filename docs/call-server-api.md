@@ -12,6 +12,8 @@ the student's own token (from `/api/register`), or `APP_API_KEY` for the server'
 | GET | `/api/health` | | `{ "ok": true, "provider": "telnyx", "users": 3, "signupsOpen": true, … }` (no secrets, no phone numbers) |
 | POST | `/api/register` | `{ "phoneNumber", "inviteCode", "consent": true, "callTime"?, "timezone"? }` | `{ "ok": true, "userId", "token" }`. In invite mode, needs `REGISTER_CODE`. In open-signup mode, an existing number needs `RECOVERY_CODE`; recovery replaces the old token |
 | GET | `/api/me` | | `{ "id", "phoneNumber", "callTime", "timezone", "paused" }` |
+| GET | `/api/me/impact` | | `{ "days", "calls", "committed", "commitRate", "medianSecondsToCommit", "summary" }`: this student's last 14 days. A call is "committed" once the agent saved a plan or step within 30 minutes. `summary` is two kind sentences from Claude (fixed sentence without a key), cached per day |
+| GET | `/api/impact` | | the same numbers across all students plus `students`; no auth, no personal data |
 | DELETE | `/api/me` | | `{ "ok": true }` removes the student and their data |
 | POST | `/api/tasks` | `{ "tasks": [{ "id", "title", "course", "dueAt", "url" }] }` | `{ "ok": true, "count": 2 }` (replaces the stored list) |
 | GET | `/api/today` | | `{ "date": "2026-10-24", "focusTask": "the CS 188 project", "startTime": "9:30 a.m.", "lastCallAt": "…", "lastCallStatus": "completed" }` |
