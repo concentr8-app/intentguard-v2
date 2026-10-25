@@ -92,3 +92,61 @@ Republish, then open `/api/health`: `"provider":"cartesia"` and all four `cartes
 1. Playground test call with the sample variables (the tool saves a plan for the user `owner`).
 2. In the app: **Call me now**. The phone rings, say a task and a time, the plan appears in the app.
 3. If nothing is saved: Playground → Calls shows what the agent heard and whether the tool failed (a wrong secret, 401, is the usual reason).
+
+## 6. The stuck-call agent
+
+When a student presses **I'm stuck** and then **Talk it through on the phone**, a second agent calls them. It is a
+separate agent, so the morning agent stays exactly as it is. The app shows the phone button only after
+`CARTESIA_STUCK_AGENT_ID` is set on the server.
+
+**Agents → Create New**, name it `concentr8-stuck`. Same calm voice as the morning agent, **Language:** English (`en`).
+
+**Welcome message:**
+
+```
+{{opening_line}}
+```
+
+(The server fills it, for example: "Hi, it's Concentr8. You pressed I'm stuck on Project 2. That's okay, it happens to
+everyone. There's no pressure, we'll just find one tiny first step together. What feels hardest about starting right now?")
+
+**Instructions:**
+
+```
+You are Concentr8, a warm, calm voice on the phone. The student just pressed "I'm stuck" on {{task}} and asked for this call. They are a Berkeley student who finds it hard to get started, and right now they feel stuck or overwhelmed. You are someone who cares. Speak slowly, keep every sentence short, never lecture, never judge.
+
+Goal: together, find ONE tiny first step they can do in the next 5 minutes, then save it with the save_step tool. The whole call takes about two minutes.
+
+How the call goes:
+1. The welcome message already asked what feels hardest. Listen. Reflect it back in one short sentence, for example "So the hard part is not knowing where to begin."
+2. Suggest one step so small it feels almost too easy: open the file, read only the first question, write one messy sentence, list three words. It takes 5 minutes or less and happens on their computer right now. If they want something different, take their idea and make it smaller.
+3. Ask: "Could you do just that for five minutes?" If they say no, make it smaller and ask again.
+4. When they agree, call save_step with first_step: the step in a few words, starting with a verb, under 15 words.
+5. Read it back in one warm sentence, say the app now shows it with a 5-minute timer, and end the call.
+
+Rules:
+- Only one step. No plans, no schedules, no to-do lists.
+- If they want to stop or take a break, that is fine: say so kindly, do not call the tool, and end the call.
+- Do not give medical advice. If they sound in crisis or mention hurting themselves, stop talking about the task, tell them they deserve support right now, and suggest they call or text 988 (Suicide & Crisis Lifeline, US) or reach out to someone they trust.
+- If asked about anything else, say you are only here to help with the first step.
+```
+
+**Tools → add a Webhook tool** `save_step` and turn on **End call**:
+
+| Field | Value |
+|---|---|
+| Name | `save_step` |
+| Description | Save the one tiny first step the student agreed to do in the next 5 minutes. Call it once, after they said yes. |
+| Method / URL | `POST` `https://<your-server>/cartesia/save-plan` (the same URL as `save_plan`) |
+| Authentication | Bearer, the same `CARTESIA_WEBHOOK_SECRET` |
+| Body `user_id` (string) | source: **dynamic variable** `user_id` |
+| Body `first_step` (string) | source: model. Description: The tiny first step, starting with a verb, e.g. "Open the spec and read only Question 1". |
+
+**Sample variables** (Playground test call): `opening_line` = the example above, `task` = `Project 2 for CompSci 188`,
+`user_id` = the id of a signed-up student (the test user `owner` exists only if the owner key was used).
+
+**Publish**, copy the agent's **ID**, and set it on the server as `CARTESIA_STUCK_AGENT_ID` (Azure → Environment
+variables), then restart. `/api/health` now shows `"features":["stuck-call"]`.
+
+**Try it:** in the app start a session, press **I'm stuck**, end the calm screen, then **Talk it through on the phone**.
+After the call the step from the phone replaces the prepared one.

@@ -188,6 +188,11 @@ const xml = (s) =>
  */
 const cartesiaReady = () => !!(env.CARTESIA_API_KEY && env.CARTESIA_AGENT_ID && env.CARTESIA_PHONE_NUMBER_ID);
 const PROVIDER = (env.CALL_PROVIDER || (cartesiaReady() ? 'cartesia' : env.TELNYX_API_KEY ? 'telnyx' : 'twilio')).toLowerCase();
+/**
+ * The stuck call ("I'm stuck" → "Talk it through on the phone") runs on its own Cartesia agent, so the morning
+ * agent stays untouched. It is announced to the app only once CARTESIA_STUCK_AGENT_ID is set.
+ */
+const stuckCallReady = () => PROVIDER === 'cartesia' && cartesiaReady() && !!env.CARTESIA_STUCK_AGENT_ID;
 
 const VOICE = env.CALL_VOICE || env.TWILIO_VOICE || 'Polly.Joanna-Neural';
 
@@ -230,6 +235,16 @@ function openingLine(u) {
   const count = top.length === 1 ? 'one thing' : `${['', 'one', 'two', 'three'][top.length]} things`;
   return `${greeting}, this is Concentr8. You have ${count} coming up. ${list}. Which one will you start with?`;
 }
+
+/** What the stuck agent says first. The calm screen already did the breathing; the call is about one tiny step. */
+function stuckOpeningLine(task) {
+  const what = task ? ` on ${task}` : '';
+  return `Hi, it's Concentr8. You pressed I'm stuck${what}. That's okay, it happens to everyone. ` +
+    "There's no pressure, we'll just find one tiny first step together. What feels hardest about starting right now?";
+}
+
+/** The task name the app sends for a stuck call: plain text, short enough to read out loud. */
+const cleanTask = (task) => String(task || '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
 
 /** "Um, I think I'll start with the CS project" -> "the CS project" */
 function cleanAnswer(speech) {
@@ -391,7 +406,7 @@ function globalToday() {
   return data.global;
 }
 
-async function placeCall(req, u) {
+async function placeCall(req, u, opts = {}) {
   await refreshCanvas(u);
   const to = phoneOf(u);
   if (!to) throw httpError(400, 'No phone number to call. Set one in the app (Settings).');
@@ -402,7 +417,7 @@ async function placeCall(req, u) {
   if (g.calls >= MAX_CALLS_PER_DAY) throw httpError(429, 'The call server reached its daily limit. Try again tomorrow.');
   const base = publicBase(req);
   const callId =
-    PROVIDER === 'cartesia' ? await placeCartesiaCall(u, to)
+    PROVIDER === 'cartesia' ? await placeCartesiaCall(u, to, opts)
     : PROVIDER === 'telnyx' ? await placeTelnyxCall(u, to, base)
     : await placeTwilioCall(u, to, base);
   u.calls.count += 1;
@@ -418,18 +433,23 @@ async function placeCall(req, u) {
  * The agent greets with {{opening_line}} and saves the plan by calling our /cartesia/save-plan webhook tool
  * with {{user_id}}, so the answer lands with the right student.
  */
-async function placeCartesiaCall(u, to) {
-  const { CARTESIA_API_KEY: key, CARTESIA_AGENT_ID: agent, CARTESIA_PHONE_NUMBER_ID: from } = env;
+async function placeCartesiaCall(u, to, opts = {}) {
+  const { CARTESIA_API_KEY: key, CARTESIA_PHONE_NUMBER_ID: from } = env;
+  const stuck = opts.reason === 'stuck';
+  const agent = stuck ? env.CARTESIA_STUCK_AGENT_ID : env.CARTESIA_AGENT_ID;
   if (!key || !agent || !from) {
     throw httpError(500, 'Cartesia is not configured (CARTESIA_API_KEY, CARTESIA_AGENT_ID, CARTESIA_PHONE_NUMBER_ID)');
   }
+  const variables = stuck
+    ? { user_id: u.id, opening_line: stuckOpeningLine(opts.task), task: opts.task || 'their task' }
+    : { user_id: u.id, opening_line: openingLine(u) };
   const res = await fetch('https://api.cartesia.ai/agents/calls', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Cartesia-Version': env.CARTESIA_VERSION || '2026-08-14', 'Content-Type': 'application/json' },
     body: JSON.stringify({
       from_number_id: from,
       agent_id: agent,
-      outbound_calls: [{ to_number: to, dynamic_variables: { user_id: u.id, opening_line: openingLine(u) } }],
+      outbound_calls: [{ to_number: to, dynamic_variables: variables }],
     }),
     signal: AbortSignal.timeout(10_000),
   });
@@ -588,6 +608,8 @@ function todayResponse(u) {
     startTime: t.startTime,
     lastCallAt: u.lastCallAt,
     lastCallStatus: u.lastCallStatus,
+    firstStep: t.firstStep || null, // agreed on a stuck call
+    firstStepAt: t.firstStepAt || null,
   };
 }
 
@@ -657,6 +679,8 @@ async function route(req, res) {
       cartesiaAgent: !!env.CARTESIA_AGENT_ID,
       cartesiaNumber: !!env.CARTESIA_PHONE_NUMBER_ID,
       cartesiaToolSecret: !!env.CARTESIA_WEBHOOK_SECRET,
+      cartesiaStuckAgent: !!env.CARTESIA_STUCK_AGENT_ID,
+      features: stuckCallReady() ? ['stuck-call'] : [],
       users: Object.keys(data.users).length,
       signupsOpen: signupsOpen(),
       inviteRequired: !openSignups() && !!env.REGISTER_CODE,
@@ -725,8 +749,18 @@ async function route(req, res) {
       return send(res, 200, { ok: true });
     }
     if ((p === '/api/call-now' && m === 'POST') || (p === '/cron/morning' && m === 'GET')) {
-      u.paused = false; // asking for a call again ends a "stop"
-      const callSid = await placeCall(req, u);
+      let opts = {};
+      if (m === 'POST') {
+        // Older apps send no body: that is the morning call.
+        let body;
+        try { body = JSON.parse((await readBody(req)) || '{}'); } catch { throw httpError(400, 'The request body is not valid JSON.'); }
+        if (body && body.reason === 'stuck') {
+          if (!stuckCallReady()) throw httpError(400, 'This call server cannot place a stuck call.');
+          opts = { reason: 'stuck', task: cleanTask(body.task) };
+        }
+      }
+      if (!opts.reason) u.paused = false; // asking for a morning call again ends a "stop"
+      const callSid = await placeCall(req, u, opts);
       // A cron hit at/after call time counts as today's morning call; a test hit at 2 a.m. doesn't.
       if (p === '/cron/morning' && localHHMM(u) >= (u.callTime || '08:00')) u.lastAutoCallDate = localDate(u);
       save();
@@ -770,6 +804,15 @@ async function route(req, res) {
       return send(res, 200, 'Done. The student will not get automatic calls anymore. Confirm that kindly and say goodbye.', 'text/plain');
     }
     const t = today(u);
+    const firstStep = String(body.first_step || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+    if (firstStep) {
+      // From the stuck call: one tiny step for the next 5 minutes. The app polls /api/today for it.
+      t.firstStep = firstStep;
+      t.firstStepAt = new Date().toISOString();
+      u.lastCallStatus = 'completed';
+      save();
+      return send(res, 200, `Saved the first step: ${firstStep.replace(/\.$/, '')}. Read it back in one short, warm sentence, say the app now shows it with a 5-minute timer, and end the call.`, 'text/plain');
+    }
     const task = String(body.task || '').trim().slice(0, 200);
     const startTime = String(body.start_time || '').trim().replace(/[!?]+$/, '').slice(0, 60);
     if (!task) throw httpError(400, 'Missing task. Ask the student which task they will start.');

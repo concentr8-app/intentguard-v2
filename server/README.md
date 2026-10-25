@@ -21,6 +21,7 @@ if not, run this folder on Replit instead (it follows the same API, see `../docs
    | `CARTESIA_AGENT_ID` | your agent's ID |
    | `CARTESIA_PHONE_NUMBER_ID` | the ID of your Cartesia phone number |
    | `CARTESIA_WEBHOOK_SECRET` | any long random string; also the Bearer token of the agent's `save_plan` tool |
+   | `CARTESIA_STUCK_AGENT_ID` | optional: the stuck-call agent (`docs/CARTESIA-SETUP.md`, step 6). Turns on "Talk it through on the phone" in the app |
 
    **Telnyx** (used when `TELNYX_API_KEY` is set). New accounts can call their verified number right away.
 

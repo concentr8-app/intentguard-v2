@@ -25,27 +25,28 @@ Saying "stop" on the phone sets `paused`: no automatic calls until the student a
 
 `dueAt`, `lastCallAt`: ISO timestamps or `null`. `startTime` is what the student said, the Mac app parses it.
 
-## Proposed: the stuck call (Mac app side is ready, server not yet)
+## The stuck call ("I'm stuck" → "Talk it through on the phone")
 
 When a student presses **I'm stuck**, the Mac app shows a calm screen and then one tiny first step. If the server
-can also *call* the student in that moment, the app offers **Talk it through on the phone**. The app only offers it
-when `/api/health` announces it, so older servers keep working unchanged.
+announces `stuck-call`, the app also offers **Talk it through on the phone**: someone calls, listens, and agrees on
+one tiny first step with them. Older servers announce nothing and keep working unchanged.
 
-| Change | Detail |
+| Part | Detail |
 |---|---|
-| `GET /api/health` | add `"features": ["stuck-call"]` once the server supports it |
-| `POST /api/call-now` | accept `{ "reason": "stuck", "task": "CS 188 Project 2" }`. With `reason: "stuck"` the agent does not run the morning script: it helps the student calm down and agree on **one tiny first step** for the next 5 minutes. Pass `reason` and `task` to the Cartesia agent as dynamic variables |
-| `POST /cartesia/save-plan` | also accept `"first_step": "Open the spec and read only Question 1"` and store it with the time it was saved |
-| `GET /api/today` | add `"firstStep"` and `"firstStepAt"` (ISO). The app polls this every 5 s during the call and uses a step only if `firstStepAt` is after the call started |
+| `GET /api/health` | `"features": ["stuck-call"]` once `CARTESIA_STUCK_AGENT_ID` is set (Cartesia only; `cartesiaStuckAgent` shows it) |
+| `POST /api/call-now` | body `{ "reason": "stuck", "task": "CS 188 Project 2" }` calls with the **stuck agent** (dynamic variables `user_id`, `opening_line`, `task`). No body = the morning call, as before. A stuck call does not end a "stop" for morning calls. 400 if the server cannot place stuck calls |
+| `POST /cartesia/save-plan` | the stuck agent's `save_step` tool sends `{ "user_id", "first_step" }`; the server stores it with the time it was saved |
+| `GET /api/today` | `"firstStep"` and `"firstStepAt"` (ISO). The app polls this every 5 s during the call and uses a step only if `firstStepAt` is newer than before the call |
 
 If no step arrives within 4 minutes, or the call fails, the app falls back to the step it already prepared.
 Desktop side: `src/main/controller.ts` (`stuckCall`, `stepFromCall`) and `src/services/callServer.ts`.
+Agent setup: [`CARTESIA-SETUP.md`](CARTESIA-SETUP.md#6-the-stuck-call-agent).
 
 ## Cartesia agent tool
 
 | Path | When |
 |---|---|
-| `POST /cartesia/save-plan` | the Cartesia agent saves the answer. `Authorization: Bearer <CARTESIA_WEBHOOK_SECRET>`, body `{ "user_id", "task", "start_time" }` or `{ "user_id", "stop_calls": true }`. Answers a short plain-text message the agent reads. See `CARTESIA-SETUP.md` |
+| `POST /cartesia/save-plan` | the Cartesia agent saves the answer. `Authorization: Bearer <CARTESIA_WEBHOOK_SECRET>`, body `{ "user_id", "task", "start_time" }`, `{ "user_id", "stop_calls": true }` or `{ "user_id", "first_step" }` (stuck call). Answers a short plain-text message the agent reads. See `CARTESIA-SETUP.md` |
 | `GET /api/cartesia/numbers` | owner only: lists your Cartesia phone numbers (to find `CARTESIA_PHONE_NUMBER_ID`) |
 
 ## Twilio / Telnyx webhooks (public, only used by the scripted fallback)

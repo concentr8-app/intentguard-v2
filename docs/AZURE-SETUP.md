@@ -26,6 +26,7 @@ Settings → **Configuration**:
 | `OPEN_SIGNUPS` | `true` = anyone can sign up without a code. Instead of it, `REGISTER_CODE` = an invite code |
 | `PUBLIC_URL` | `https://<name>.azurewebsites.net` |
 | `CARTESIA_API_KEY`, `CARTESIA_AGENT_ID`, `CARTESIA_PHONE_NUMBER_ID`, `CARTESIA_WEBHOOK_SECRET` | see `CARTESIA-SETUP.md` |
+| `CARTESIA_STUCK_AGENT_ID` (optional) | the stuck-call agent, see `CARTESIA-SETUP.md` step 6 |
 
 If the app does not answer: Settings → Environment variables, check `PORT` (the server reads `PORT`; App Service normally provides it, unverified).
 

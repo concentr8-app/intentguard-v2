@@ -125,3 +125,64 @@ test('open sign-ups: no invite code needed, but an existing number cannot be tak
     assert.equal((await reg('+14155550111')).status, 409);
   } finally { delete process.env.OPEN_SIGNUPS; }
 });
+
+// ---------- the stuck call ("I'm stuck" → "Talk it through on the phone") ----------
+
+test('the stuck call is announced only once its own agent is configured', async () => {
+  delete process.env.CARTESIA_STUCK_AGENT_ID;
+  let h = await (await fetch(base + '/api/health')).json();
+  assert.deepEqual(h.features, []);
+  const s = await signup('4155557777');
+  const refused = await post('/api/call-now', { reason: 'stuck', task: 'Essay' }, s.token);
+  assert.equal(refused.status, 400, 'no stuck call without the stuck agent');
+
+  process.env.CARTESIA_STUCK_AGENT_ID = 'agent_stuck';
+  try {
+    h = await (await fetch(base + '/api/health')).json();
+    assert.deepEqual(h.features, ['stuck-call']);
+    assert.equal(h.cartesiaStuckAgent, true);
+  } finally { delete process.env.CARTESIA_STUCK_AGENT_ID; }
+});
+
+test('a stuck call uses the stuck agent and names the task; the morning call is unchanged', async () => {
+  process.env.CARTESIA_STUCK_AGENT_ID = 'agent_stuck';
+  try {
+    const s = await signup('4155558888');
+    data.users[s.userId].paused = true; // said "stop" to morning calls
+    cartesiaCalls.length = 0;
+    const r = await post('/api/call-now', { reason: 'stuck', task: 'CS 188\nProject 2' }, s.token);
+    assert.equal(r.status, 200);
+    const vars = cartesiaCalls[0].body.outbound_calls[0].dynamic_variables;
+    assert.equal(cartesiaCalls[0].body.agent_id, 'agent_stuck');
+    assert.equal(vars.user_id, s.userId);
+    assert.equal(vars.task, 'CS 188 Project 2');
+    assert.match(vars.opening_line, /You pressed I'm stuck on CS 188 Project 2/);
+    assert.equal(data.users[s.userId].paused, true, 'a stuck call does not turn morning calls back on');
+
+    const morning = await post('/api/call-now', {}, s.token);
+    assert.equal(morning.status, 200);
+    assert.equal(cartesiaCalls[1].body.agent_id, 'agent_123');
+    assert.equal(cartesiaCalls[1].body.outbound_calls[0].dynamic_variables.task, undefined);
+  } finally { delete process.env.CARTESIA_STUCK_AGENT_ID; }
+});
+
+test('the first step from a stuck call reaches /api/today with its time', async () => {
+  const a = await signup('4155559999');
+  const before = await (await fetch(base + '/api/today', { headers: { Authorization: `Bearer ${a.token}` } })).json();
+  assert.equal(before.firstStep, null);
+  assert.equal(before.firstStepAt, null);
+
+  const r = await post('/cartesia/save-plan', { user_id: a.userId, first_step: '  Open the spec and read only Question 1.  ' }, 'tool-secret');
+  assert.equal(r.status, 200);
+  assert.match(await r.text(), /Saved the first step: Open the spec and read only Question 1/);
+  const after = await (await fetch(base + '/api/today', { headers: { Authorization: `Bearer ${a.token}` } })).json();
+  assert.equal(after.firstStep, 'Open the spec and read only Question 1.');
+  assert.ok(Date.parse(after.firstStepAt) > 0);
+  assert.equal(after.focusTask, null, 'a first step does not replace the plan of the day');
+});
+
+test('a call-now body that is not JSON is refused', async () => {
+  const s = await signup('4155550000');
+  const r = await fetch(base + '/api/call-now', { method: 'POST', headers: { Authorization: `Bearer ${s.token}`, 'Content-Type': 'application/json' }, body: '{oops' });
+  assert.equal(r.status, 400);
+});
