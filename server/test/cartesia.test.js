@@ -360,12 +360,18 @@ test('/api/relevance: Claude judges an unclear page, only with intent, app, titl
     process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
     claudeCalls.length = 0;
     claudeAnswer = () => ({ status: 200, json: { content: [{ type: 'text', text: '{"relevance": "unrelated", "confidence": 0.95, "reason": "An NFL search is not part of Project 2."}' }] } });
-    const r = await ask({ intent: 'Project 2: Multi-Agent Search', app: 'Firefox', title: 'nfl league - Google Suche', location: 'www.google.com/search; query: nfl league' });
+    const r = await ask({
+      intent: 'Project 2: Multi-Agent Search', app: 'Firefox', title: 'nfl league - Google Suche', location: 'www.google.com/search; query: nfl league',
+      task: { title: 'Project 2: Multi-Agent Search', course: 'COMPSCI 188', kind: 'assignment', dueAt: '2026-10-27T23:59:00-07:00', description: 'Implement minimax and expectimax for Pacman.' },
+    });
     assert.equal(r.status, 200);
     assert.deepEqual(await r.json(), { relevance: 'unrelated', confidence: 0.95, reason: 'An NFL search is not part of Project 2.' });
     const sent = claudeCalls[0].body.messages[0].content;
     assert.match(sent, /Intent: Project 2: Multi-Agent Search/);
     assert.match(sent, /Location: www\.google\.com\/search; query: nfl league/);
+    assert.match(sent, /Task background:\n- Title: Project 2: Multi-Agent Search\n- Course: COMPSCI 188/);
+    assert.match(sent, /- Instructions: Implement minimax and expectimax for Pacman\./);
+    assert.match(claudeCalls[0].body.system, /Be strict/);
 
     claudeAnswer = () => ({ status: 200, json: { content: [{ type: 'text', text: 'I think it is unrelated.' }] } });
     assert.equal((await ask({ intent: 'Project 2', title: 'x' })).status, 502, 'no JSON: the app stays neutral');

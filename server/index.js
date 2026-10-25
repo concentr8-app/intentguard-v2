@@ -485,23 +485,33 @@ async function claudeFirstStep(body) {
 // During a focus session the app decides most pages itself (known distractions, course pages). For a page it cannot
 // judge, it sends only the intent, the app name, the page title and host/path/search query; nothing is stored here.
 
-const MAX_RELEVANCE_PER_USER_PER_DAY = Number(env.MAX_RELEVANCE_PER_USER_PER_DAY || 800);
-const MAX_RELEVANCE_PER_DAY = Number(env.MAX_RELEVANCE_PER_DAY || 20000);
-
 const RELEVANCE_SYSTEM_PROMPT = [
-  'A university student started a focus session for the intent below. Decide whether the activity directly helps with that intent.',
-  'relevant: the page or app is for this intent (its course page, documents, research or tools for it).',
-  'unrelated: clearly something else, like sports, entertainment, social media, shopping, games or news that do not belong to the intent. A search counts by what was searched for.',
-  'uncertain: anything you cannot tell from the given text. Prefer uncertain over a wrong guess.',
-  'confidence is how sure you are, from 0 to 1. Keep reason under 15 words, addressed to the student, kind and without blame.',
+  'A university student started a focus session to work on one task. Decide whether the activity on their computer helps with exactly that task.',
+  'Be strict. relevant only when the activity clearly helps with this task: its course page, its instructions, material, research or tools it needs.',
+  'Everything else is unrelated: sports, entertainment, social media, shopping, games, news, other courses and generally useful sites that do not serve this task. A search counts by what was searched for.',
+  'Use the task background: something that looks off-topic is relevant when the task explains it, for example NFL statistics for a sports data project.',
+  'uncertain only when the title and address say almost nothing, like a blank page, a login page or a bare home page.',
+  'confidence is how sure you are, from 0 to 1. reason: under 15 words, addressed to the student, kind and without blame.',
   'Reply with JSON only, no other text: {"relevance": "relevant" | "unrelated" | "uncertain", "confidence": <0 to 1>, "reason": "<short>"}',
 ].join(' ');
 
 async function claudeRelevance(body) {
   const intent = oneLine(body.intent, 300);
   if (!intent) throw httpError(400, 'Missing intent.');
+  const task = body.task && typeof body.task === 'object' ? body.task : null;
   const lines = [
     `Intent: ${intent}`,
+    ...(task
+      ? [
+          'Task background:',
+          `- Title: ${oneLine(task.title, 200)}`,
+          `- Course: ${oneLine(task.course, 100)}`,
+          `- Kind: ${oneLine(task.kind, 30)}`,
+          ...(task.dueAt ? [`- Due: ${oneLine(task.dueAt, 40)}`] : []),
+          ...(task.description ? [`- Instructions: ${oneLine(task.description, 800)}`] : []),
+        ]
+      : []),
+    'Activity:',
     `App: ${oneLine(body.app, 100) || '(unknown)'}`,
     `Title: ${oneLine(body.title, 300) || '(none)'}`,
     `Location: ${oneLine(body.location, 500) || '(none)'}`,
@@ -511,7 +521,7 @@ async function claudeRelevance(body) {
     res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: claudeModel(), max_tokens: 120, system: RELEVANCE_SYSTEM_PROMPT, messages: [{ role: 'user', content: lines.join('\n') }] }),
+      body: JSON.stringify({ model: claudeModel(), max_tokens: 160, system: RELEVANCE_SYSTEM_PROMPT, messages: [{ role: 'user', content: lines.join('\n') }] }),
       signal: AbortSignal.timeout(7000),
     });
   } catch (err) {
@@ -1122,16 +1132,7 @@ async function route(req, res) {
       if (!env.ANTHROPIC_API_KEY) throw httpError(503, 'This call server has no Claude key.');
       let body;
       try { body = JSON.parse((await readBody(req)) || '{}'); } catch { throw httpError(400, 'The request body is not valid JSON.'); }
-      const date = localDate(u);
-      if (!u.relevance || u.relevance.date !== date) u.relevance = { date, count: 0 };
-      if (u.relevance.count >= MAX_RELEVANCE_PER_USER_PER_DAY) throw httpError(429, 'Too many page checks today.');
-      const g = globalToday();
-      if ((g.relevance || 0) >= MAX_RELEVANCE_PER_DAY) throw httpError(429, 'The server reached its daily page-check limit.');
-      const result = await claudeRelevance(body);
-      u.relevance.count += 1;
-      g.relevance = (g.relevance || 0) + 1;
-      save();
-      return send(res, 200, result);
+      return send(res, 200, await claudeRelevance(body));
     }
     if (p === '/api/tasks' && m === 'GET') {
       await refreshCanvas(u);
