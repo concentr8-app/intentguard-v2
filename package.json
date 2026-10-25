@@ -10,7 +10,9 @@
     "typecheck": "tsc --noEmit",
     "start": "tsc || echo 'TypeScript reported errors above; starting anyway'; electron .",
     "test": "tsc && node --test dist/test/*.test.js",
-    "dist": "tsc && electron-builder --mac --publish never"
+    "dist": "tsc && electron-builder --mac --publish never",
+    "dist:win": "tsc && electron-builder --win --publish never",
+    "dist:linux": "tsc && electron-builder --linux --publish never"
   },
   "license": "MIT",
   "dependencies": {
@@ -43,7 +45,30 @@
       "identity": null,
       "icon": "build/icon.png"
     },
-    "artifactName": "Concentr8-${arch}.${ext}"
+    "artifactName": "Concentr8-${arch}.${ext}",
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Utility",
+      "icon": "build/icon.png"
+    }
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

@@ -59,6 +59,7 @@ header a.top{font-size:.95rem;color:var(--mute);text-decoration:none;border-bott
 .btn:hover{background:var(--call);transform:translateY(-1px)}
 .alt{margin-left:18px;font-size:.95rem;color:var(--mute)}
 .small{font-size:.9rem;color:var(--mute);margin-top:16px;max-width:30rem}
+.note{font-size:.95rem;margin-top:18px;max-width:30rem;padding:12px 14px;border-left:4px solid var(--sun);background:rgba(255,214,102,.18);border-radius:0 10px 10px 0}
 
 /* the call */
 .phone{background:var(--ink);color:#f1f6f2;border-radius:30px;padding:26px 22px 28px;max-width:25rem;margin-left:auto;box-shadow:0 30px 60px -28px rgba(13,42,38,.6)}
@@ -142,6 +143,9 @@ footer{padding:0 0 48px;color:var(--mute);font-size:.9rem}
         <p class="lede">Every morning Concentr8 phones you, asks which task you will start and when, and then keeps distractions off your Mac until you have begun. Made for Berkeley students with ADHD.</p>
         <a class="btn" id="dl" href="{{DOWNLOAD_BASE}}/Concentr8-arm64.dmg">Download for Mac</a>
         <a class="alt" href="{{DOWNLOAD_BASE}}/Concentr8-x64.dmg">Intel Mac</a>
+        <a class="alt" href="{{DOWNLOAD_BASE}}/Concentr8-x64.exe">Windows</a>
+        <a class="alt" href="{{DOWNLOAD_BASE}}/Concentr8-x64.AppImage">Linux</a>
+        <p class="note"><strong>Windows and Linux are early versions.</strong> You get the morning call, your tasks and the stuck screen. Blocking distractions works on Mac only, for now. Full Windows and Linux support is coming later.</p>
         <p class="small">Mac with Apple Silicon (M1 or newer) is the big button. Not sure which you have? Apple menu, then About This Mac. The call works for US phone numbers.</p>
       </div>
 
@@ -224,8 +228,8 @@ footer{padding:0 0 48px;color:var(--mute);font-size:.9rem}
           <p>Say "stop calling me" during the call, or turn it off or delete your account in the app.</p>
         </details>
         <details>
-          <summary>Which Macs does it run on?</summary>
-          <p>Macs with Apple Silicon (M1 or newer) and Intel Macs. It does not run on Windows or iPhone.</p>
+          <summary>Which computers does it run on?</summary>
+          <p>Macs with Apple Silicon (M1 or newer) and Intel Macs, with everything. Windows and Linux have early versions with the morning call, tasks and the stuck screen, but without blocking distractions; the full versions come later. There is no iPhone or Android app yet.</p>
         </details>
       </div>
     </section>
