@@ -6,7 +6,10 @@ Concentr8 is an execution-recovery agent, initially focused on Berkeley students
 
 New contributors should read [`AGENTS.md`](AGENTS.md) and [`docs/STATUS.md`](docs/STATUS.md) before editing.
 
-Built at Cal Hacks 13.0.
+Built by and for UC Berkeley students at Cal Hacks 13.0. Not affiliated with UC Berkeley.
+
+- **Website:** https://concentr8-calls-dqakcah0a0f7edhn.swedencentral-01.azurewebsites.net/
+- **Download for Mac:** [Apple Silicon](https://github.com/concentr8-app/concentr8/releases/latest/download/Concentr8-arm64.dmg) · [Intel](https://github.com/concentr8-app/concentr8/releases/latest/download/Concentr8-x64.dmg). The app is not signed by Apple yet: after moving it to Applications, run `xattr -dr com.apple.quarantine /Applications/Concentr8.app` once.
 
 ## What works today
 
@@ -16,9 +19,9 @@ Built at Cal Hacks 13.0.
 - Optionally classify otherwise-neutral activity with a cached, provider-agnostic semantic check.
 - Warn after clear drift, allow a grace period, then redirect or close the distraction and restore the last relevant page.
 - Pause interventions during an intentional break.
-- **I'm stuck:** a calm full-screen minute, then one tiny first step with a short timer and a check-in ("Did you get going?"). The step comes from Claude when `ANTHROPIC_API_KEY` is set, otherwise from fixed steps that get smaller each time. During a session **⌃⌥⌘S** starts it from any app.
+- **I'm stuck:** one full-screen minute of box breathing (in 4, hold 4, out 4, hold 4), then one tiny first step with a short timer and a check-in ("Did you get going?"). Claude writes the step from the task and course: through the call server for a signed-in app, or directly with a local `ANTHROPIC_API_KEY` in development; fixed steps that get smaller each time take over on any failure. **Talk it through on the phone** lets a Cartesia voice agent call and agree on the step with you. During a session **⌃⌥⌘S** starts it from any app, and five distractions in ten minutes start it by itself (Esc ends it).
 - Show an in-session intervention log and store ended-session summaries locally.
-- Connect to the current call server for scheduled or on-demand check-ins.
+- Connect to the call server for the morning call (Claude writes the greeting from your real deadlines) or an on-demand call.
 
 Deterministic rules always run first. Only neutral activity can use the optional semantic classifier, and low-confidence or failed requests remain neutral. See [`docs/STATUS.md`](docs/STATUS.md).
 
