@@ -6,6 +6,7 @@ import type { AppState, Settings } from '../shared/types';
 import { createGroqSemanticProvider } from '../services/groq';
 import { createMacPlatform, createNullPlatform } from '../services/platform';
 import { CachedSemanticClassifier } from '../services/semantic';
+import { ServerSemanticProvider } from '../services/semanticServer';
 import { createStepProvider } from '../services/stuck';
 import { checkForUpdate } from '../services/updates';
 import { Controller } from './controller';
@@ -262,7 +263,12 @@ app.whenReady().then(() => {
   });
   const platform = process.platform === 'darwin' ? createMacPlatform() : createNullPlatform();
   const relevanceLog = (message: string) => console.info(message);
-  const semantic = new CachedSemanticClassifier(createGroqSemanticProvider(), relevanceLog);
+  // A local key (development) wins; the downloaded app asks Claude through the call server once signed in.
+  const semanticProvider = createGroqSemanticProvider() ?? new ServerSemanticProvider(
+    () => controller?.callServerClient() ?? null,
+    async (intent) => (controller ? controller.taskBackground(intent) : null),
+  );
+  const semantic = new CachedSemanticClassifier(semanticProvider, relevanceLog);
   const stepProvider = createStepProvider();
   console.info(stepProvider ? `[stuck] step provider=${stepProvider.name} model=${stepProvider.model}` : '[stuck] steps from Claude via the call server when signed in, else fixed steps');
   controller = new Controller({

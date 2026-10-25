@@ -285,6 +285,30 @@ export class Controller {
 
   // ---------- call server ----------
 
+  private descriptions = new Map<string, Promise<string | null>>();
+
+  /** What Claude should know about the task being worked on: course, kind, due date and, from bCourses, its instructions. */
+  async taskBackground(intent: string): Promise<{ title: string; course: string; kind: string; dueAt: string | null; description: string | null } | null> {
+    const tasks = this.store.tasks;
+    const url = this.focus.session?.taskUrl;
+    const task = tasks.find((t) => url && t.url === url) ?? tasks.find((t) => t.title === intent) ?? matchTask(intent, tasks);
+    if (!task) return null;
+    let description: string | null = null;
+    if (this.settings.canvasConnected && !this.settings.canvasFeed && this.store.canvasToken && task.url) {
+      if (!this.descriptions.has(task.id)) {
+        const client = new CanvasClient(this.settings.canvasBaseUrl, this.store.canvasToken);
+        this.descriptions.set(task.id, client.taskDescription(task).catch(() => null));
+      }
+      description = (await this.descriptions.get(task.id)) ?? null;
+    }
+    return { title: task.title, course: task.course, kind: task.kind, dueAt: task.dueAt, description };
+  }
+
+  /** The signed-in call server, for providers that ask it (the page check). */
+  callServerClient(): CallServerClient | null {
+    return this.server();
+  }
+
   private server(): CallServerClient | null {
     const key = this.store.serverApiKey;
     if (!this.settings.serverUrl || !key) return null;

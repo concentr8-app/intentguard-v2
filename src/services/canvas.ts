@@ -163,6 +163,14 @@ export class CanvasClient {
   }
 
   /** Everything due in the next `days` days that isn't submitted yet, earliest first. */
+  /** The instructions of one assignment, quiz or discussion, as plain text; null when the link does not say which. */
+  async taskDescription(task: Task): Promise<string | null> {
+    const m = task.url ? /\/courses\/(\d+)\/(assignments|quizzes|discussion_topics)\/(\d+)/.exec(task.url) : null;
+    if (!m) return null;
+    const { data } = await this.get<{ description?: string | null; message?: string | null }>(`/api/v1/courses/${m[1]}/${m[2]}/${m[3]}`);
+    return plainText(data.description || data.message || '') || null;
+  }
+
   async upcomingTasks(days = 14, now = new Date()): Promise<Task[]> {
     const start = new Date(now.getTime() - 24 * 3_600_000); // include things due earlier today
     const end = new Date(now.getTime() + days * 24 * 3_600_000);
@@ -176,6 +184,22 @@ export class CanvasClient {
     const courseNames = new Map(courses.map((c) => [c.id, c.course_code || c.name]));
     return normalizePlannerItems(items, courseNames, this.base, now);
   }
+}
+
+/** HTML from Canvas as short plain text (instructions of an assignment, for the page check). */
+export function plainText(html: string, max = 800): string {
+  return html
+    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max);
 }
 
 export function normalizePlannerItems(
