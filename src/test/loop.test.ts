@@ -6,8 +6,9 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
-import { Controller } from '../main/controller';
+import { Controller, NOTICE_MS } from '../main/controller';
 import { Store } from '../main/store';
+import { DEFAULT_SERVER_URL } from '../services/callServer';
 import { createNullPlatform } from '../services/platform';
 import { localHHMM } from '../services/time';
 
@@ -210,4 +211,44 @@ test('an arbitrary typed intent starts without a matching bCourses task', () => 
   controller.startFocus();
   assert.equal(controller.getState().session?.task, 'Build Concentr8 CalHacks demo');
   assert.equal(controller.getState().session?.taskUrl, null);
+});
+
+test('an update moves the old default call server to the current one', () => {
+  for (const connected of [false, true]) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'c8-'));
+    const settings = { serverUrl: 'https://intentguard-v-2.replit.app', serverConnected: connected };
+    fs.writeFileSync(path.join(dir, 'concentr8.json'), JSON.stringify({ settings }));
+    const store = new Store(dir, plainCrypto);
+    // Only students who never connected move: a connected server keeps its address and key.
+    assert.equal(store.settings.serverUrl, connected ? settings.serverUrl : DEFAULT_SERVER_URL);
+  }
+});
+
+test('status lines go away once they no longer apply', async (t) => {
+  let remote = { date: '2026-10-24', focusTask: null as string | null, startTime: null as string | null, lastCallAt: null, lastCallStatus: null };
+  serveToday(t, () => remote);
+  const { controller, setClock } = setup(true);
+
+  await controller.callNow();
+  assert.equal(controller.getState().notice, 'Calling your phone now…');
+  setClock('2026-10-24T15:01:00Z');
+  assert.equal(controller.getState().notice, 'Calling your phone now…', 'stays while the call is going on');
+
+  remote = { ...remote, focusTask: 'Project 2', startTime: '9:45 p.m.' };
+  await controller.pollServer();
+  assert.equal(controller.getState().notice, null, 'the plan from the call replaces it');
+
+  await controller.useDemo();
+  assert.match(controller.getState().notice ?? '', /Demo mode/);
+  controller.startFocus();
+  assert.equal(controller.getState().notice, null, 'starting a session clears it');
+
+  await controller.useDemo();
+  controller.stopFocus();
+  assert.equal(controller.getState().notice, null, 'ending the session clears it');
+
+  await controller.useDemo();
+  setClock(new Date(Date.parse('2026-10-24T15:01:00Z') + NOTICE_MS).toISOString());
+  assert.equal(controller.getState().notice, null, 'and it expires on its own');
+  controller.stopTimers();
 });
