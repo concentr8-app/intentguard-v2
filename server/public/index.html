@@ -1,26 +1,241 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Concentr8</title>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Concentr8: start the first task</title>
+<meta name="description" content="Concentr8 calls you every morning, asks which task you will start and when, then keeps distractions away on your Mac. Made for Berkeley students with ADHD.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23184a39'/%3E%3Ccircle cx='32' cy='32' r='20' fill='none' stroke='%23f4f7f2' stroke-width='4' opacity='.6'/%3E%3Ccircle cx='32' cy='32' r='6' fill='%23ffd666'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&display=swap" rel="stylesheet">
 <style>
-:root{color-scheme:light dark;--bg:#fafaf7;--fg:#1c1c1a;--mut:#6b6b66;--ac:#2f6f4f}
-@media (prefers-color-scheme:dark){:root{--bg:#161715;--fg:#f0f0ea;--mut:#a0a09a;--ac:#6fcf9a}}
-body{margin:0;background:var(--bg);color:var(--fg);font:18px/1.5 -apple-system,system-ui,sans-serif}
-main{max-width:34rem;margin:0 auto;padding:12vh 16px 8vh}
-h1{font-size:2.4rem;margin:0 0 .4rem}p{color:var(--mut);margin:.4rem 0 1.4rem}
-a.b{display:inline-block;background:var(--ac);color:#fff;text-decoration:none;padding:.8rem 1.4rem;border-radius:10px;font-weight:600}
-a.s{color:var(--mut);margin-left:1rem;font-size:.9rem}
-ol{padding-left:1.2rem}li{margin:.5rem 0}small{color:var(--mut)}
-</style></head><body><main>
-<h1>Concentr8</h1>
-<p>Starting is the hard part. Concentr8 calls you in the morning, asks which task you start and when, then keeps distractions away. Made for Berkeley students with ADHD.</p>
-<a class="b" id="dl" href="{{DOWNLOAD_BASE}}/Concentr8-arm64.dmg">Download for Mac</a>
-<a class="s" href="{{DOWNLOAD_BASE}}/Concentr8-x64.dmg">Intel Mac</a>
-<ol>
-<li>Open the download and drag Concentr8 into Applications.</li>
-<li>First start: right-click Concentr8, choose <b>Open</b>, then <b>Open</b> again (the app is not signed yet).</li>
-<li>Settings: enter your phone number and the invite code, tick the box. Done.</li>
-</ol>
-<small>Apple Silicon (M1 or newer) is the first button. Not sure? Apple menu, About This Mac.</small>
-</main>
-<script>try{if(!/Macintosh/.test(navigator.userAgent))document.getElementById('dl').textContent='Download (Mac only)'}catch(e){}</script>
-</body></html>
+:root{
+  --ink:#0d2a26;
+  --mist:#eef3ef;
+  --paper:#f9fbf8;
+  --call:#1c7a52;
+  --call-deep:#14573a;
+  --sun:#ffd666;
+  --coral:#d9482b;
+  --mute:#52645f;
+  --line:#cfdcd5;
+  --display:'Bricolage Grotesque','Avenir Next',system-ui,sans-serif;
+  --text:'Atkinson Hyperlegible','Atkinson Hyperlegible Next',system-ui,-apple-system,'Segoe UI',sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ink:#e9f1ec; --mist:#0b1f1c; --paper:#0f2723; --call:#4cc38a; --call-deep:#2f9c69;
+    --mute:#9bb2aa; --line:#254039; --coral:#ff7a5c;
+  }
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--mist);color:var(--ink);font:19px/1.6 var(--text);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+:focus-visible{outline:3px solid var(--sun);outline-offset:3px;border-radius:4px}
+.wrap{max-width:68rem;margin:0 auto;padding:0 20px}
+h1,h2,h3{font-family:var(--display);font-weight:700;line-height:1.08;margin:0;letter-spacing:-.02em}
+p{margin:0}
+
+/* top bar */
+header{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
+.brand{display:flex;align-items:center;gap:10px;font:700 1.25rem var(--display);letter-spacing:-.01em;text-decoration:none}
+.brand i{width:30px;height:30px;border-radius:9px;background:var(--call-deep);position:relative;display:block}
+.brand i::before{content:"";position:absolute;inset:6px;border:2.5px solid rgba(255,255,255,.6);border-radius:50%}
+.brand i::after{content:"";position:absolute;left:12px;top:12px;width:6px;height:6px;border-radius:50%;background:var(--sun)}
+header a.top{font-size:.95rem;color:var(--mute);text-decoration:none;border-bottom:1px solid var(--line)}
+
+/* hero */
+.hero{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center;padding:48px 0 88px}
+.hero h1{font-size:clamp(2.5rem,6vw,4.4rem)}
+.hero .lede{font-size:1.2rem;color:var(--mute);max-width:30rem;margin:22px 0 30px}
+.btn{display:inline-block;background:var(--call-deep);color:#fff;text-decoration:none;font:700 1.1rem var(--display);padding:16px 26px;border-radius:12px;transition:transform .15s,background .15s}
+.btn:hover{background:var(--call);transform:translateY(-1px)}
+.alt{margin-left:18px;font-size:.95rem;color:var(--mute)}
+.small{font-size:.9rem;color:var(--mute);margin-top:16px;max-width:30rem}
+
+/* the call */
+.phone{background:var(--ink);color:#f1f6f2;border-radius:30px;padding:26px 22px 28px;max-width:25rem;margin-left:auto;box-shadow:0 30px 60px -28px rgba(13,42,38,.6)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .phone{background:#06150f;border:1px solid var(--line)}}
+.phone .who{display:flex;align-items:center;gap:12px;padding-bottom:18px;border-bottom:1px solid rgba(255,255,255,.14);margin-bottom:18px}
+.phone .dot{width:44px;height:44px;border-radius:50%;background:var(--call);display:grid;place-items:center}
+.phone .dot::after{content:"";width:12px;height:12px;border-radius:50%;background:var(--sun)}
+.phone .who b{display:block;font:700 1.05rem var(--display)}
+.phone .who span{font-size:.85rem;opacity:.7}
+.line{max-width:88%;padding:11px 15px;border-radius:18px;margin:10px 0;font-size:1rem;line-height:1.45;opacity:0;transform:translateY(6px);animation:in .5s forwards}
+.line.a{background:rgba(255,255,255,.12);border-bottom-left-radius:5px}
+.line.b{background:var(--call);color:#fff;margin-left:auto;border-bottom-right-radius:5px}
+.line:nth-of-type(1){animation-delay:.5s}
+.line:nth-of-type(2){animation-delay:2.1s}
+.line:nth-of-type(3){animation-delay:3.4s}
+.line:nth-of-type(4){animation-delay:4.7s}
+.line:nth-of-type(5){animation-delay:6s}
+@keyframes in{to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.line{animation:none;opacity:1;transform:none}html{scroll-behavior:auto}.btn{transition:none}}
+
+/* sections */
+section{padding:84px 0;border-top:1px solid var(--line)}
+section h2{font-size:clamp(1.9rem,4vw,2.9rem);max-width:34rem}
+.intro{color:var(--mute);max-width:36rem;margin-top:16px}
+
+/* the day */
+.day{margin-top:48px;display:grid;gap:0;max-width:44rem}
+.day li{list-style:none;display:grid;grid-template-columns:6.2rem 1fr;gap:18px;padding:22px 0;border-bottom:1px solid var(--line)}
+.day time{font:700 1.5rem var(--display);color:var(--call-deep)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .day time{color:var(--call)}}
+.day li.warn time{color:var(--coral)}
+.day h3{font-size:1.3rem;margin-bottom:4px}
+.day p{color:var(--mute)}
+.day ul{padding:0;margin:0}
+
+/* features */
+.feat{margin-top:44px;display:grid;grid-template-columns:1fr 1fr;gap:44px 64px}
+.feat h3{font-size:1.35rem;margin-bottom:8px}
+.feat p{color:var(--mute)}
+
+/* faq */
+details{border-bottom:1px solid var(--line);padding:18px 0;max-width:46rem}
+summary{cursor:pointer;font:700 1.2rem var(--display);list-style:none;display:flex;justify-content:space-between;gap:20px}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";font-size:1.5rem;line-height:1;color:var(--call-deep)}
+details[open] summary::after{content:"\2013"}
+details p{margin-top:12px;color:var(--mute)}
+.faq{margin-top:36px}
+ol.steps{margin:12px 0 0;padding-left:1.3rem;color:var(--mute)}
+ol.steps li{margin:6px 0}
+
+/* closing */
+.last{background:var(--ink);color:#f1f6f2;border-radius:28px;padding:56px 36px;margin:20px 0 70px}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .last{background:#06150f;border:1px solid var(--line)}}
+.last h2{max-width:26rem}
+.last .btn{background:var(--sun);color:#0d2a26;margin-top:26px}
+.last .btn:hover{background:#ffe08a}
+footer{padding:0 0 48px;color:var(--mute);font-size:.9rem}
+
+@media (max-width:820px){
+  .hero{grid-template-columns:1fr;gap:40px;padding-bottom:64px}
+  .phone{margin:0}
+  .feat{grid-template-columns:1fr;gap:34px}
+  .day li{grid-template-columns:1fr;gap:4px}
+  section{padding:60px 0}
+  .alt{display:block;margin:14px 0 0}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a class="brand" href="#top"><i aria-hidden="true"></i>Concentr8</a>
+    <a class="top" href="#faq">Questions</a>
+  </header>
+
+  <main id="top">
+    <div class="hero">
+      <div>
+        <h1>The hard part is starting. We call you for that.</h1>
+        <p class="lede">Every morning Concentr8 phones you, asks which task you will start and when, and then keeps distractions off your Mac until you have begun. Made for Berkeley students with ADHD.</p>
+        <a class="btn" id="dl" href="{{DOWNLOAD_BASE}}/Concentr8-arm64.dmg">Download for Mac</a>
+        <a class="alt" href="{{DOWNLOAD_BASE}}/Concentr8-x64.dmg">Intel Mac</a>
+        <p class="small">Mac with Apple Silicon (M1 or newer) is the big button. Not sure which you have? Apple menu, then About This Mac. The call works for US phone numbers.</p>
+      </div>
+
+      <div class="phone" role="img" aria-label="Example of the morning call. Concentr8 asks which task you will start. You answer: the CS 188 project, at nine thirty. Concentr8 confirms.">
+        <div class="who"><div class="dot"></div><div><b>Concentr8</b><span>Example call, 8:00 a.m.</span></div></div>
+        <div class="line a">Good morning. Two things are due soon: Project 2 for CompSci 188, and the reading quiz. Which one will you start with?</div>
+        <div class="line b">The project.</div>
+        <div class="line a">When will you start?</div>
+        <div class="line b">Nine thirty.</div>
+        <div class="line a">Locked in: Project 2 at nine thirty. Good luck.</div>
+      </div>
+    </div>
+
+    <section id="day">
+      <h2>One short call. Then the Mac helps you keep your word.</h2>
+      <p class="intro">You decide the task and the time out loud. That is the part that is usually missing at 9 a.m.</p>
+      <ul class="day" style="padding:0">
+        <li>
+          <time>8:00</time>
+          <div><h3>The call</h3><p>It reads your upcoming bCourses deadlines and asks one question: which task, and when? You answer in a sentence. The call takes under a minute.</p></div>
+        </li>
+        <li>
+          <time>9:30</time>
+          <div><h3>You start</h3><p>The app knows your task and your start time, and your session begins. You can also start any task by typing it in, even one that is not in bCourses.</p></div>
+        </li>
+        <li class="warn">
+          <time>9:41</time>
+          <div><h3>You drift to YouTube</h3><p>A visible warning appears and you get a short grace period. If you stay, the app moves you back to your work instead of just scolding you.</p></div>
+        </li>
+        <li>
+          <time>11:00</time>
+          <div><h3>You take a break on purpose</h3><p>Breaks are allowed. Pause the nudges, end the break when you are ready, and monitoring picks up again.</p></div>
+        </li>
+        <li>
+          <time>Later</time>
+          <div><h3>You see what happened</h3><p>Each session keeps a plain log of the nudges and returns, so you can look back without guessing.</p></div>
+        </li>
+      </ul>
+    </section>
+
+    <section id="features">
+      <h2>What is inside</h2>
+      <div class="feat">
+        <div><h3>bCourses, connected</h3><p>Paste your bCourses access token once, or use your calendar feed link if you do not have the token button. Assignments, quizzes and discussions come in on their own.</p></div>
+        <div><h3>A call that asks, not tells</h3><p>A calm voice, a few short sentences, one question. Say a time or say now. Say stop and it will not call again.</p></div>
+        <div><h3>Task-aware focus</h3><p>The app compares what you are doing with the task you chose. Your course pages and the work itself count as focus. A blank tab does not count against you.</p></div>
+        <div><h3>Nudges that move you back</h3><p>Known distraction sites and apps get a warning first. If you stay, the app returns you to where you were working.</p></div>
+        <div><h3>Your phone number, your choice</h3><p>You pick the call time. You can delete your account from the app at any time, and the call stops.</p></div>
+        <div><h3>Simple to run</h3><p>Download, drag into Applications, enter your phone number. No terminal, no setup scripts.</p></div>
+      </div>
+    </section>
+
+    <section id="faq">
+      <h2>Questions</h2>
+      <div class="faq">
+        <details>
+          <summary>How do I open the app the first time?</summary>
+          <p>The app is not signed by Apple yet, so macOS asks once.</p>
+          <ol class="steps">
+            <li>Open the download and drag Concentr8 into Applications.</li>
+            <li>Right-click Concentr8 in Applications and choose Open.</li>
+            <li>Choose Open again in the window that appears.</li>
+          </ol>
+        </details>
+        <details>
+          <summary>What does the app need permission for?</summary>
+          <p>Concentr8 asks macOS for Automation and Accessibility access so it can see which app and page you are on and move you back to your work. It asks when it needs them, and you can change this in System Settings.</p>
+        </details>
+        <details>
+          <summary>What do you store about me?</summary>
+          <p>Your bCourses token stays on your Mac. The call server keeps your phone number, your call time and the titles and due dates of your assignments, so the call can name them. Delete your account in the app and this data is removed.</p>
+        </details>
+        <details>
+          <summary>Which phone numbers work?</summary>
+          <p>US numbers only for now. Enter yours with the country code, like +1 415 555 1234.</p>
+        </details>
+        <details>
+          <summary>What if I do not want the call anymore?</summary>
+          <p>Say "stop calling me" during the call, or turn it off or delete your account in the app.</p>
+        </details>
+        <details>
+          <summary>Which Macs does it run on?</summary>
+          <p>Macs with Apple Silicon (M1 or newer) and Intel Macs. It does not run on Windows or iPhone.</p>
+        </details>
+      </div>
+    </section>
+
+    <div class="last">
+      <h2>Tomorrow at 8, answer one question.</h2>
+      <a class="btn" href="{{DOWNLOAD_BASE}}/Concentr8-arm64.dmg">Download for Mac</a>
+    </div>
+  </main>
+
+  <footer>Concentr8 was started at Cal Hacks 13.0. It is not a medical product.</footer>
+</div>
+<script>
+try{
+  if(!/Macintosh/.test(navigator.userAgent)){document.getElementById('dl').textContent='Download (Mac only)'}
+}catch(e){}
+</script>
+</body>
+</html>
