@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'">
   <title>Concentr8</title>
+  <link rel="stylesheet" href="fonts.css">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -12,6 +13,7 @@
     <nav class="status" id="status" aria-label="Connections"></nav>
     <button class="ghost" id="open-settings" type="button">Settings</button>
   </header>
+  <p class="update" id="update" role="status" hidden>A newer Concentr8 is out: version <strong id="update-version"></strong>. <a id="update-link" href="https://github.com/concentr8-app/concentr8/releases/latest" data-external>Download it</a>, then replace the old app.</p>
 
   <!-- Add your courses (bCourses): optional, opened from the task list or Settings -->
   <main id="onboarding" class="onboarding" hidden>

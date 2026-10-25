@@ -7,6 +7,7 @@ import { createGroqSemanticProvider } from '../services/groq';
 import { createMacPlatform, createNullPlatform } from '../services/platform';
 import { CachedSemanticClassifier } from '../services/semantic';
 import { createStepProvider } from '../services/stuck';
+import { checkForUpdate } from '../services/updates';
 import { Controller } from './controller';
 import { loadLocalEnv } from './env';
 import { Store } from './store';
@@ -250,6 +251,8 @@ app.whenReady().then(() => {
     stepProvider,
     openUrl: openExternal,
     log: (message) => console.info(message),
+    // Only the downloaded app looks for a newer version; a development run would always look outdated.
+    checkUpdate: app.isPackaged ? () => checkForUpdate(app.getVersion(), process.platform, process.arch) : undefined,
   });
   registerIpc(controller);
 

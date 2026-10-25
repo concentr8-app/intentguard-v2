@@ -20,6 +20,7 @@ import type {
   StuckOutcome,
   Task,
   TodayIntent,
+  UpdateInfo,
 } from '../shared/types';
 import { CanvasClient, demoTasks, feedTasks, isFeedUrl } from '../services/canvas';
 import { CallServerClient, DEFAULT_SERVER_URL } from '../services/callServer';
@@ -46,12 +47,15 @@ export interface ControllerDeps {
   /** Opens a page in the student's browser (the task link for the first step). */
   openUrl?(url: string): void;
   log?(message: string): void;
+  /** Looks for a newer public release; null when there is none (or the check failed). */
+  checkUpdate?(): Promise<UpdateInfo | null>;
 }
 
 const FOCUS_TICK_MS = 3_000;
 const SERVER_POLL_MS = 60_000;
 const CANVAS_SYNC_MS = 15 * 60_000;
 const CLOCK_TICK_MS = 20_000;
+const UPDATE_CHECK_MS = 6 * 60 * 60_000;
 
 /** Four rounds of box breathing (16 s each) on the calm screen. */
 export const CALM_MS = 64_000;
@@ -80,6 +84,7 @@ export class Controller {
 
   // "I'm stuck" state for the running session.
   private stuck: StuckEpisode | null = null;
+  private update: UpdateInfo | null = null;
   private stuckOutcomes: StuckOutcome[] = [];
   /** The step being prepared. Replacing or clearing it makes any older request's result stale. */
   private pendingStep: Promise<FirstStep> | null = null;
@@ -123,7 +128,9 @@ export class Controller {
       setInterval(() => void this.pollServer(), SERVER_POLL_MS),
       setInterval(() => void this.syncCanvas(), CANVAS_SYNC_MS),
       setInterval(() => this.clockTick(), CLOCK_TICK_MS),
+      setInterval(() => void this.checkUpdate(), UPDATE_CHECK_MS),
     );
+    void this.checkUpdate();
     void this.syncCanvas().then(() => this.pollServer());
     this.clockTick();
   }
@@ -166,6 +173,7 @@ export class Controller {
   getState(): AppState {
     return {
       appVersion: this.deps.appVersion ?? 'development',
+      update: this.update,
       settings: this.settings,
       tasks: this.store.tasks,
       lastSync: this.store.lastSync,
@@ -184,6 +192,17 @@ export class Controller {
 
   private emit() {
     this.deps.emit(this.getState());
+  }
+
+  /** Shows "a newer version is out" in the app; a failed check changes nothing. */
+  async checkUpdate(): Promise<UpdateInfo | null> {
+    if (!this.deps.checkUpdate) return null;
+    const found = await this.deps.checkUpdate().catch(() => null);
+    if (found?.version !== this.update?.version) {
+      this.update = found;
+      this.emit();
+    }
+    return found;
   }
 
   private say(notice: string | null, ms = NOTICE_MS) {

@@ -1,18 +1,24 @@
 # Builds the app for Mac (.dmg), Windows (.exe) and Linux (.AppImage) and publishes it to the public download repo.
 #
-# Fully automatic: change "version" in package.json (for example 1.0.2 to 1.0.3) and merge to main. If that version has
-# no release yet, this workflow builds all three apps and publishes them as the newest release, which is what the
-# download buttons on the website serve. Pushing a tag like v1.0.3 does the same, and so does "Run workflow" under Actions
-# (a manual run only builds and keeps the files as workflow artifacts, it does not publish).
+# Fully automatic: every change to the app that lands on main (src/, renderer/, build/ or package.json) becomes a new
+# version. The workflow takes the newest public release, adds 1 to the last number (1.0.4 -> 1.0.5), builds all three
+# apps with that version and publishes them, which is what the download buttons and the in-app update notice serve.
+# Changes to the server, the website or the docs do not change the app, so they do not make a new version.
+# A bigger jump (for example 2.0.0) works by setting "version" in package.json higher than the newest release.
+# Pushing a tag like v1.2.3 publishes exactly that version. "Run workflow" under Actions only builds (no publish).
 name: Release apps
 on:
   push:
     tags: ['v[0-9]+.[0-9]+.[0-9]+']   # only clean versions like v1.0.0, never v1.0.0-beta
     branches: [main]
-    paths: ['package.json']
+    paths: ['src/**', 'renderer/**', 'build/**', 'package.json', '.github/workflows/release.yml']
   workflow_dispatch:
 permissions:
   contents: read
+# One release at a time, so two quick merges get two different version numbers instead of the same one.
+concurrency:
+  group: release
+  cancel-in-progress: false
 jobs:
   plan:
     runs-on: ubuntu-latest
@@ -24,25 +30,33 @@ jobs:
       - id: v
         shell: bash
         run: |
+          PKG="$(node -p "require('./package.json').version")"
+          LATEST="$(git ls-remote --tags https://github.com/concentr8-app/concentr8 \
+            | sed -n 's#.*refs/tags/v\([0-9]*\.[0-9]*\.[0-9]*\)$#\1#p' | sort -V | tail -1)"
+          echo "package.json: $PKG, newest public release: ${LATEST:-none}"
+          RELEASE=false
           if [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
             VERSION="${GITHUB_REF_NAME#v}"
-          else
-            VERSION="$(node -p "require('./package.json').version")"
-          fi
-          RELEASE=false
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Version '$VERSION' is not a clean x.y.z version: nothing will be published."
-          elif [[ "$GITHUB_REF_TYPE" == "tag" ]]; then
             RELEASE=true
           elif [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
-            # A push to main releases only when the public repo has no release for this version yet.
-            code="$(curl -s -o /dev/null -w '%{http_code}' "https://github.com/concentr8-app/concentr8/releases/tag/v$VERSION")"
-            echo "Public release page for v$VERSION answered $code"
-            if [[ "$code" == "404" ]]; then RELEASE=true; fi
+            if [[ -z "$LATEST" ]]; then
+              VERSION="$PKG"
+            elif [[ "$PKG" != "$LATEST" && "$(printf '%s\n%s\n' "$PKG" "$LATEST" | sort -V | tail -1)" == "$PKG" ]]; then
+              VERSION="$PKG"   # package.json was set higher on purpose
+            else
+              IFS=. read -r MA MI PA <<< "$LATEST"
+              VERSION="$MA.$MI.$((PA + 1))"
+            fi
+            RELEASE=true
+          else
+            VERSION="$PKG"
+          fi
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version '$VERSION' is not a clean x.y.z version"; exit 1
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "release=$RELEASE" >> "$GITHUB_OUTPUT"
-          echo "Building $VERSION, publish: $RELEASE"
+          echo "### Building $VERSION (publish: $RELEASE)" >> "$GITHUB_STEP_SUMMARY"
 
   build:
     needs: plan

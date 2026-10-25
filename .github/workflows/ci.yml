@@ -1,0 +1,54 @@
+# Tests on every pull request and every push to main, so a broken change is visible before it ships:
+# the app (type check, tests, build), the call server (tests), the website (placeholders and links) and
+# accessibility (WCAG 2.2 AA checks with axe-core on the website and the app screens, light and dark).
+name: Tests
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  app:
+    name: App and accessibility
+    runs-on: ubuntu-latest
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'   # the tests do not start Electron, they only need its types
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install --no-audit --no-fund
+      - name: Type check
+        run: npm run typecheck
+      - name: App tests
+        run: npm test
+      - name: Website check
+        shell: bash
+        run: |
+          page=server/public/index.html
+          for f in Concentr8-arm64.dmg Concentr8-x64.dmg Concentr8-x64.exe Concentr8-x64.AppImage; do
+            grep -q "{{DOWNLOAD_BASE}}/$f" "$page" || { echo "::error::The website has no download link for $f"; exit 1; }
+          done
+          node -e '
+            const name = require("./package.json").build.artifactName;
+            if (name !== "Concentr8-${arch}.${ext}") { console.log("::error::artifactName changed: update the website links, src/services/updates.ts and release.yml"); process.exit(1); }'
+          leftover="$(sed 's#{{DOWNLOAD_BASE}}#x#g' "$page" | grep -o '{{[A-Z_]*}}' | sort -u || true)"
+          [[ -z "$leftover" ]] || { echo "::error::Unknown placeholders in the website: $leftover"; exit 1; }
+      - name: Accessibility (axe-core, WCAG 2.2 AA)
+        run: |
+          npm install --no-save --no-audit --no-fund playwright axe-core
+          npx playwright install --with-deps chromium
+          node scripts/a11y-check.js
+
+  server:
+    name: Call server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: cd server && npm test

@@ -6,8 +6,9 @@
   --night-deep: #0e1914;
   --sprout: #cfe8c4;
   --mist: #93a998;
-  --ui: "Avenir Next", "Avenir", system-ui, -apple-system, sans-serif;
-  --voice: "Charter", "Iowan Old Style", Georgia, serif;
+  --ui: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --voice: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --display: "Bricolage Grotesque", "Atkinson Hyperlegible", system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }

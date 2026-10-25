@@ -91,6 +91,8 @@ ol.setup p+p{margin-top:10px}
 /* the call */
 .phone{background:var(--ink);color:#f1f6f2;border-radius:30px;padding:26px 22px 28px;max-width:25rem;margin-left:auto;box-shadow:0 30px 60px -28px rgba(13,42,38,.6)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .phone{background:#06150f;border:1px solid var(--line)}}
+/* dark mode: light green surfaces need dark text to stay readable (WCAG AA 4.5:1) */
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .btn,:root:not([data-theme="light"]) header a.cta,:root:not([data-theme="light"]) .line.b{background:var(--call);color:#06231a}:root:not([data-theme="light"]) .btn:hover,:root:not([data-theme="light"]) header a.cta:hover{background:#6fd3a2}}
 .phone .who{display:flex;align-items:center;gap:12px;padding-bottom:18px;border-bottom:1px solid rgba(255,255,255,.14);margin-bottom:18px}
 .phone .dot{width:46px;height:46px;flex:none}
 .phone .dot svg{width:100%;height:100%;display:block}
@@ -276,7 +278,7 @@ footer{padding:0 0 48px;color:var(--mute);font-size:.9rem}
         </details>
         <details>
           <summary>Do I always get the newest version?</summary>
-          <p>Yes. The download buttons always give you the newest release. The installed app does not update itself yet, so to update, download it again and replace the old one.</p>
+          <p>Yes. The download buttons always give you the newest release, and every change to the app becomes a new version. The app shows a notice with a download link when a newer version is out. It cannot replace itself yet, so download it and replace the old app.</p>
         </details>
         <details>
           <summary>What does the app need permission for?</summary>
