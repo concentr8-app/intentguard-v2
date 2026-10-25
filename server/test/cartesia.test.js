@@ -326,7 +326,9 @@ test('health shows whether Claude works, per feature, without any secret', async
     claudeAnswer = () => ({ status: 200, json: { content: [{ type: 'text', text: 'OK' }] } });
     assert.equal((await claudeSelfTest()).ok, true);
     claudeAnswer = () => ({ status: 401, json: { error: { message: 'invalid x-api-key' } } });
-    assert.deepEqual([(await claudeSelfTest()).ok, claudeStatus.selfTest.detail], [false, 'Claude answered 401']);
+    assert.deepEqual([(await claudeSelfTest()).ok, claudeStatus.selfTest.detail], [false, 'Claude answered 401: invalid x-api-key']);
+    claudeAnswer = () => ({ status: 400, json: { type: 'error', error: { type: 'invalid_request_error', message: 'Your credit balance is too low to access the Anthropic API.' } } });
+    assert.match((await claudeSelfTest()).detail, /^Claude answered 400: Your credit balance is too low/, 'the reason shows in /api/health');
 
     h = await (await fetch(base + '/api/health')).json();
     assert.equal(h.claude.key, true);
@@ -345,4 +347,46 @@ test("greetingFor: the greeting follows the student's local time", () => {
   assert.equal(greetingFor(u, new Date('2026-10-25T16:00:00Z')), 'Good morning'); // 9:00 in Berkeley
   assert.equal(greetingFor(u, new Date('2026-10-25T21:00:00Z')), 'Hi'); // 14:00
   assert.equal(greetingFor(u, new Date('2026-10-26T01:00:00Z')), 'Good evening'); // 18:00
+});
+
+test('/api/relevance: Claude judges an unclear page, only with intent, app, title and location', async () => {
+  const s = await signup('4155555555');
+  const ask = (body) => post('/api/relevance', body, s.token);
+  const saved = process.env.ANTHROPIC_API_KEY;
+  try {
+    delete process.env.ANTHROPIC_API_KEY;
+    assert.equal((await ask({ intent: 'Project 2', app: 'Firefox', title: 'nfl league - Google Suche', location: 'www.google.com/search; query: nfl league' })).status, 503);
+
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    claudeCalls.length = 0;
+    claudeAnswer = () => ({ status: 200, json: { content: [{ type: 'text', text: '{"relevance": "unrelated", "confidence": 0.95, "reason": "An NFL search is not part of Project 2."}' }] } });
+    const r = await ask({ intent: 'Project 2: Multi-Agent Search', app: 'Firefox', title: 'nfl league - Google Suche', location: 'www.google.com/search; query: nfl league' });
+    assert.equal(r.status, 200);
+    assert.deepEqual(await r.json(), { relevance: 'unrelated', confidence: 0.95, reason: 'An NFL search is not part of Project 2.' });
+    const sent = claudeCalls[0].body.messages[0].content;
+    assert.match(sent, /Intent: Project 2: Multi-Agent Search/);
+    assert.match(sent, /Location: www\.google\.com\/search; query: nfl league/);
+
+    claudeAnswer = () => ({ status: 200, json: { content: [{ type: 'text', text: 'I think it is unrelated.' }] } });
+    assert.equal((await ask({ intent: 'Project 2', title: 'x' })).status, 502, 'no JSON: the app stays neutral');
+    claudeAnswer = () => ({ status: 200, json: { content: [{ type: 'text', text: '{"relevance": "maybe", "confidence": 2}' }] } });
+    assert.equal((await ask({ intent: 'Project 2', title: 'x' })).status, 502, 'odd answer: the app stays neutral');
+    assert.equal((await ask({ title: 'x' })).status, 400, 'no intent');
+  } finally {
+    if (saved === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = saved;
+  }
+});
+
+test('/api/relevance passes on the reason when Claude refuses (e.g. no credits)', async () => {
+  const s = await signup('4155556666');
+  const saved = process.env.ANTHROPIC_API_KEY;
+  try {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    claudeAnswer = () => ({ status: 400, json: { error: { message: 'Your credit balance is too low to access the Anthropic API.' } } });
+    const r = await post('/api/relevance', { intent: 'Project 2', title: 'x' }, s.token);
+    assert.equal(r.status, 502);
+    assert.match(JSON.stringify(await r.json()), /credit balance is too low/);
+  } finally {
+    if (saved === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = saved;
+  }
 });

@@ -126,6 +126,11 @@ export class CallServerClient {
     });
   }
 
+  /** Claude's check of a page the app cannot judge itself, asked through the server. */
+  relevance(input: { intent: string; app: string; title: string; location: string }): Promise<{ relevance: string; confidence: number; reason: string }> {
+    return this.request('POST', '/api/relevance', input);
+  }
+
   callNow(request: CallRequest = {}): Promise<{ ok: boolean; callSid: string }> {
     return this.request('POST', '/api/call-now', request);
   }
