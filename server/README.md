@@ -65,8 +65,6 @@ The server finds its own public address on Replit. Elsewhere, set `PUBLIC_URL`.
 | Name | Default | What it does |
 |---|---|---|
 | `PORT` | `3000` | |
-| `MAX_CALLS_PER_USER_PER_DAY` | `10` | calls one student can get per day (including “Call me now”) |
-| `MAX_CALLS_PER_DAY` | `300` | calls the whole server places per day |
 | `MAX_SIGNUPS_PER_DAY` | `200` | new students per day |
 | `PUBLIC_URL` | auto on Replit | base URL Twilio calls back |
 | `DATA_FILE` | `server/data.json` | where tasks and answers are kept |
@@ -75,7 +73,6 @@ The server finds its own public address on Replit. Elsewhere, set `PUBLIC_URL`.
 | `TWILIO_VOICE` | | old name of `CALL_VOICE` |
 | `VALIDATE_TWILIO_SIGNATURE` | off | set `true` to reject webhooks not signed by Twilio |
 | `ANTHROPIC_MODEL` | `claude-haiku-5-5` | model for first steps and the optional natural replies |
-| `MAX_STEPS_PER_USER_PER_DAY` / `MAX_STEPS_PER_DAY` | `40` / `3000` | caps on Claude first steps, to protect the API credits |
 
 ## Many students
 
