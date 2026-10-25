@@ -42,6 +42,20 @@ function setup(withServer: boolean) {
   };
 }
 
+function serveToday(
+  t: { after(fn: () => void): void },
+  today: () => { date: string; focusTask: string | null; startTime: string | null; lastCallAt: string | null; lastCallStatus: string | null },
+) {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const body = String(input).endsWith('/api/today') ? today() : { ok: true };
+    return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }) as typeof fetch;
+  t.after(() => {
+    globalThis.fetch = realFetch;
+  });
+}
+
 test('call answer becomes a focus session at the promised time', async (t) => {
   const requests: string[] = [];
   const realFetch = globalThis.fetch;
@@ -93,6 +107,83 @@ test('without a call server the app asks in the morning itself', () => {
   assert.equal(shown(), 1);
   controller.clockTick(); // only once a day
   assert.equal(shown(), 1);
+});
+
+test('phone plan for now starts focus as soon as it is polled', async (t) => {
+  serveToday(t, () => ({
+    date: '2026-10-24',
+    focusTask: 'Finish Math 185 HW8',
+    startTime: 'right now',
+    lastCallAt: '2026-10-24T15:00:00Z',
+    lastCallStatus: 'completed',
+  }));
+  const { controller } = setup(true);
+
+  await controller.pollServer();
+
+  assert.equal(controller.getState().session?.task, 'Finish Math 185 HW8');
+});
+
+test('an earlier manual session does not prevent a phone plan from auto-starting', async (t) => {
+  serveToday(t, () => ({
+    date: '2026-10-24',
+    focusTask: 'Finish Math 185 HW8',
+    startTime: 'now',
+    lastCallAt: '2026-10-24T15:02:00Z',
+    lastCallStatus: 'completed',
+  }));
+  const { controller } = setup(true);
+  controller.setIntent('Check email', '');
+  controller.startFocus();
+  controller.stopFocus();
+
+  await controller.pollServer();
+
+  assert.equal(controller.getState().session?.task, 'Finish Math 185 HW8');
+});
+
+test('repeated polling of the same phone plan starts it only once', async (t) => {
+  const remote = {
+    date: '2026-10-24',
+    focusTask: 'Finish Math 185 HW8',
+    startTime: 'now',
+    lastCallAt: '2026-10-24T15:02:00Z',
+    lastCallStatus: 'completed',
+  };
+  serveToday(t, () => remote);
+  const { controller, notes } = setup(true);
+
+  await controller.pollServer();
+  controller.stopFocus();
+  await controller.pollServer();
+  controller.clockTick();
+
+  assert.equal(controller.getState().session, null);
+  assert.equal(notes.filter((note) => note === 'Focus on').length, 1);
+});
+
+test('a changed phone commitment later the same day can auto-start', async (t) => {
+  let remote = {
+    date: '2026-10-24',
+    focusTask: 'Finish Math 185 HW8',
+    startTime: 'now',
+    lastCallAt: '2026-10-24T15:02:00Z',
+    lastCallStatus: 'completed',
+  };
+  serveToday(t, () => remote);
+  const { controller, setClock } = setup(true);
+
+  await controller.pollServer();
+  controller.stopFocus();
+  setClock('2026-10-24T15:10:00Z');
+  remote = {
+    ...remote,
+    focusTask: 'Write history essay',
+    lastCallAt: '2026-10-24T15:10:00Z',
+  };
+  await controller.pollServer();
+
+  assert.equal(controller.getState().session?.task, 'Write history essay');
 });
 
 test('typed intent with a start time also auto-starts', () => {

@@ -68,7 +68,7 @@ export class Controller {
   private notice: string | null = null;
   private timers: NodeJS.Timeout[] = [];
   private checkInShownFor: string | null = null;
-  private autoStartedFor: string | null = null;
+  private autoStartedCommitment: string | null = null;
   private readonly now: () => number;
 
   // "I'm stuck" state for the running session.
@@ -371,6 +371,7 @@ export class Controller {
       this.store.setToday(next);
       if (!this.settings.serverConnected) this.store.updateSettings({ serverConnected: true });
       this.emit();
+      if (changed) this.clockTick();
     } catch (err) {
       this.syncError = (err as Error).message;
       this.emit();
@@ -395,7 +396,7 @@ export class Controller {
       startAt: this.parseStart(startTime.trim() || null),
       source: 'app',
     });
-    this.autoStartedFor = null;
+    this.autoStartedCommitment = null;
     this.emit();
   }
 
@@ -404,7 +405,6 @@ export class Controller {
     const match = matchTask(name, this.store.tasks);
     this.resetStuck();
     this.focus.start(name, match?.url ?? null, minutes || this.settings.sessionMinutes);
-    this.autoStartedFor = this.today.date;
     this.deps.notify('Focus on', `"${name}" for ${minutes || this.settings.sessionMinutes} min. I've got the distractions.`);
   }
 
@@ -747,14 +747,20 @@ export class Controller {
     }
 
     // 2) Start the session at the time the student promised.
+    // Fingerprint the plan so repeated polls are idempotent without blocking a later commitment that day.
+    const commitment = today.startAt
+      ? JSON.stringify([today.date, today.focusTask, today.startTime, today.startAt])
+      : null;
+    const startsAt = today.startAt ? Date.parse(today.startAt) : NaN;
     if (
-      today.startAt &&
+      commitment &&
       !this.focus.session &&
-      this.autoStartedFor !== today.date &&
-      now.getTime() >= Date.parse(today.startAt) &&
-      now.getTime() - Date.parse(today.startAt) < 30 * 60_000
+      this.autoStartedCommitment !== commitment &&
+      now.getTime() >= startsAt &&
+      now.getTime() - startsAt < 30 * 60_000
     ) {
       this.startFocus(today.focusTask ?? undefined);
+      this.autoStartedCommitment = commitment;
       this.deps.showWindow();
     }
   }
