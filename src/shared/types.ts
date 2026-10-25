@@ -120,6 +120,7 @@ export type StuckOutcome = 'started' | 'break' | 'cancelled' | 'ended';
 
 /** Everything the UI needs, pushed from main to renderer on every change. */
 export interface AppState {
+  appVersion: string;
   settings: Settings;
   tasks: Task[];
   lastSync: string | null;

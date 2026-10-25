@@ -78,6 +78,7 @@ function onBreak(session) {
 
 function paint() {
   if (!state) return;
+  $('app-version').textContent = `Version ${state.appVersion}`;
   const { settings } = state;
   const hasTasks = settings.canvasConnected || settings.demoMode;
   if (hasTasks) connectingCanvas = false;

@@ -30,6 +30,14 @@ test('activity view exposes the page title and complete URL', () => {
   );
 });
 
+test('settings show the current app version', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../../renderer/index.html'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '../../renderer/app.js'), 'utf8');
+
+  assert.match(html, /id="app-version"/);
+  assert.match(app, /Version \$\{state\.appVersion\}/);
+});
+
 test('Call me now remains discoverable and disconnected users are sent to recovery', () => {
   const html = fs.readFileSync(path.join(__dirname, '../../renderer/index.html'), 'utf8');
   const app = fs.readFileSync(path.join(__dirname, '../../renderer/app.js'), 'utf8');

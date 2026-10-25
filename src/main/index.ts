@@ -239,6 +239,7 @@ app.whenReady().then(() => {
   const stepProvider = createStepProvider();
   console.info(stepProvider ? `[stuck] step provider=${stepProvider.name} model=${stepProvider.model}` : '[stuck] steps from Claude via the call server when signed in, else fixed steps');
   controller = new Controller({
+    appVersion: app.getVersion(),
     store,
     platform,
     notify,
