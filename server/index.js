@@ -349,12 +349,6 @@ const STEP_SYSTEM_PROMPT = [
   'If this is a retry, make the action clearly smaller and easier than the previous one.',
 ].join(' ');
 
-const STEP_SCHEMA = {
-  type: 'object',
-  properties: { step: { type: 'string' }, minutes: { type: 'integer' } },
-  required: ['step', 'minutes'],
-  additionalProperties: false,
-};
 
 const oneLine = (value, max) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
 
@@ -369,24 +363,43 @@ async function claudeFirstStep(body) {
   const previous = oneLine(body.previous_step, 300);
   if (attempt > 1 && previous) lines.push(`Retry ${attempt}. This step was still too big: "${previous}"`);
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-    body: JSON.stringify({
-      model: env.ANTHROPIC_MODEL || 'claude-haiku-5-5',
-      max_tokens: 200,
-      system: STEP_SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: lines.join('\n') }],
-      output_config: { format: { type: 'json_schema', schema: STEP_SCHEMA } },
-    }),
-    signal: AbortSignal.timeout(8000),
-  });
-  if (!res.ok) throw httpError(502, `Claude answered ${res.status}`);
+  // A plain request with "JSON only" and a lenient parse. Structured outputs compile a grammar on first use, and
+  // that extra latency must never push us past the app's 10 s timeout: the step is shown while the student waits.
+  let res;
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: env.ANTHROPIC_MODEL || 'claude-haiku-5-5',
+        max_tokens: 200,
+        system: `${STEP_SYSTEM_PROMPT} Reply with JSON only, no other text: {"step": "<the action>", "minutes": <2 to 10>}`,
+        messages: [{ role: 'user', content: lines.join('\n') }],
+      }),
+      signal: AbortSignal.timeout(8500),
+    });
+  } catch (err) {
+    console.error('[first-step] Claude request failed:', err.name, err.message);
+    throw httpError(502, `Claude did not answer (${err.name})`);
+  }
+  if (!res.ok) {
+    const detail = await res.text().catch(() => '');
+    console.error(`[first-step] Claude answered ${res.status}:`, detail.slice(0, 300));
+    throw httpError(502, `Claude answered ${res.status}`);
+  }
   const data = await res.json();
-  if (data.stop_reason === 'refusal' || data.stop_reason === 'max_tokens') throw httpError(502, `Claude stopped early (${data.stop_reason})`);
-  const text = (data.content || []).find((c) => c.type === 'text')?.text;
+  if (data.stop_reason === 'refusal' || data.stop_reason === 'max_tokens') {
+    console.error('[first-step] Claude stopped early:', data.stop_reason);
+    throw httpError(502, `Claude stopped early (${data.stop_reason})`);
+  }
+  const text = String((data.content || []).find((c) => c.type === 'text')?.text || '');
   let value;
-  try { value = JSON.parse(text || ''); } catch { throw httpError(502, 'Claude did not answer with a step'); }
+  try {
+    value = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
+  } catch {
+    console.error('[first-step] Claude did not answer with JSON:', text.slice(0, 200));
+    throw httpError(502, 'Claude did not answer with a step');
+  }
   const step = oneLine(value.step, 1000);
   if (!step || step.length > 240) throw httpError(502, 'Claude did not answer with a usable step');
   const minutes = Math.min(10, Math.max(2, Math.round(Number(value.minutes) || 5)));
