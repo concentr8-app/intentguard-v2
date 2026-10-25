@@ -259,6 +259,7 @@ async function claudeOpeningLine(u) {
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({
         model: claudeModel(),
+        thinking: NO_THINKING,
         max_tokens: 150,
         system:
           'You write the first thing a voice assistant says on a planning phone call to a UC Berkeley student with ADHD, at the time they chose. ' +
@@ -327,6 +328,7 @@ async function claudeUnderstand(u, speech) {
       },
       body: JSON.stringify({
         model: claudeModel(),
+        thinking: NO_THINKING,
         max_tokens: 200,
         messages: [
           {
@@ -365,6 +367,10 @@ const BUILD = (() => {
   }
 })();
 const claudeModel = () => env.ANTHROPIC_MODEL || 'claude-haiku-5-5';
+// Claude Sonnet 5 and newer think first by default, and the thinking counts toward max_tokens, so a short answer can
+// stop early with stop_reason "max_tokens" (seen live on the first step). Every answer here is short and has to be
+// quick (a student waits, or a phone call is starting), so thinking stays off.
+const NO_THINKING = { type: 'disabled' };
 
 function noteClaude(feature, ok, detail) {
   claudeStatus[feature] = { ok, at: new Date().toISOString(), ...(detail ? { detail: String(detail).slice(0, 160) } : {}) };
@@ -384,7 +390,7 @@ async function claudeSelfTest() {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: claudeModel(), max_tokens: 5, messages: [{ role: 'user', content: 'Reply with the word OK.' }] }),
+      body: JSON.stringify({ model: claudeModel(), thinking: NO_THINKING, max_tokens: 5, messages: [{ role: 'user', content: 'Reply with the word OK.' }] }),
       signal: AbortSignal.timeout(10_000),
     });
     if (res.ok) noteClaude('selfTest', true);
@@ -439,6 +445,7 @@ async function claudeFirstStep(body) {
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({
         model: claudeModel(),
+        thinking: NO_THINKING,
         max_tokens: 200,
         system: `${STEP_SYSTEM_PROMPT} Reply with JSON only, no other text: {"step": "<the action>", "minutes": <2 to 10>}`,
         messages: [{ role: 'user', content: lines.join('\n') }],
@@ -521,7 +528,7 @@ async function claudeRelevance(body) {
     res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
-      body: JSON.stringify({ model: claudeModel(), max_tokens: 160, system: RELEVANCE_SYSTEM_PROMPT, messages: [{ role: 'user', content: lines.join('\n') }] }),
+      body: JSON.stringify({ model: claudeModel(), thinking: NO_THINKING, max_tokens: 160, system: RELEVANCE_SYSTEM_PROMPT, messages: [{ role: 'user', content: lines.join('\n') }] }),
       signal: AbortSignal.timeout(7000),
     });
   } catch (err) {
@@ -757,6 +764,7 @@ async function impactSummary(u) {
         headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
         body: JSON.stringify({
           model: claudeModel(),
+          thinking: NO_THINKING,
           max_tokens: 120,
           system:
             'You write a short note to a UC Berkeley student with ADHD about how their morning calls went. ' +
