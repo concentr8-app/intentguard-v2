@@ -132,7 +132,8 @@ test('the scheduler calls each student at their own local time, once a day, neve
   const e = await signup('4155555555', { callTime: now, timezone: 'Europe/Berlin' });
   const f = await signup('4155556666', { callTime: now, timezone: 'Europe/Berlin' });
   await api('/api/settings', { method: 'POST', key: f.token, body: { paused: true } });
-  for (const u of Object.values(data.users)) if (u.id !== e.userId) u.lastAutoCallDate = '2000-01-01';
+  // Everyone else from earlier tests is paused, so their own call times (e.g. 8:00 in Berkeley) never make this flaky.
+  for (const u of Object.values(data.users)) if (u.id !== e.userId) u.paused = true;
   data.users[e.userId].lastAutoCallDate = null;
   data.users[e.userId].calls = { date: null, count: 0 };
   calls.length = 0;

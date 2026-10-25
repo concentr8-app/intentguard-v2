@@ -5,8 +5,17 @@
 import type { ActivityContext } from '../shared/types';
 import type { SemanticProvider, SemanticRelevance, SemanticResult } from './semantic';
 
+/** What Claude should know about the task of the session, so a page that looks off-topic can still fit it. */
+export interface TaskBackground {
+  title: string;
+  course: string;
+  kind: string;
+  dueAt: string | null;
+  description: string | null;
+}
+
 export interface RelevanceServer {
-  relevance(input: { intent: string; app: string; title: string; location: string }): Promise<{
+  relevance(input: { intent: string; app: string; title: string; location: string; task: TaskBackground | null }): Promise<{
     relevance?: string;
     confidence?: number;
     reason?: string;
@@ -31,13 +40,18 @@ export class ServerSemanticProvider implements SemanticProvider {
   readonly name = 'claude-via-server';
   readonly model = 'server';
 
-  constructor(private readonly server: () => RelevanceServer | null) {}
+  constructor(
+    private readonly server: () => RelevanceServer | null,
+    private readonly background: (intent: string) => Promise<TaskBackground | null> = async () => null,
+  ) {}
 
   async classifySemantic(context: ActivityContext): Promise<SemanticResult> {
     const server = this.server();
     if (!server) throw new Error('No call server connected');
     const { activity } = context;
+    const task = await this.background(context.intent).catch(() => null);
     const answer = await server.relevance({
+      task,
       intent: compact(context.intent, 300),
       app: compact(activity.app, 100),
       title: compact(activity.title, 300),
