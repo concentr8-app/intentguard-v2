@@ -61,7 +61,9 @@ a { color: var(--leaf); }
 }
 .bar button, .bar a { -webkit-app-region: no-drag; }
 
-.brand { font-weight: 700; font-size: 15px; letter-spacing: -0.01em; color: var(--leaf-dark); }
+.brand { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; letter-spacing: -0.01em; color: var(--leaf-dark); }
+.brand-mark { width: 24px; height: 24px; flex: none; }
+.muted.fineprint { font-size: 12px; margin-top: 18px; line-height: 1.5; }
 
 .status { display: flex; gap: var(--s4); flex: 1; font-size: 12px; color: var(--moss); }
 .status span { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
