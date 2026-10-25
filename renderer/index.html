@@ -53,13 +53,23 @@
     <section class="today" id="today" aria-live="polite">
       <!-- No plan yet -->
       <div id="plan-empty">
-        <h1 class="ask">What's the one thing you'll start today?</h1>
+        <h1 class="ask" id="intent-heading">What's the one thing you'll start today?</h1>
         <form id="intent-form" class="intent-form">
           <input id="intent-task" class="big-input" type="text" placeholder="e.g. CS 188 Project 2" autocomplete="off" required>
-          <input id="intent-time" class="time-input" type="text" placeholder="later? 9:30" autocomplete="off" aria-label="Start later at (optional)">
-          <button class="primary" type="submit" id="intent-submit">Start now</button>
+          <div class="timing-choice" id="timing-choice" role="group" aria-label="When to start">
+            <button class="timing-option selected" id="intent-now" type="button" aria-pressed="true">Now</button>
+            <button class="timing-option" id="intent-later" type="button" aria-pressed="false">Later</button>
+          </div>
+          <input id="intent-time" class="time-input" type="text" placeholder="e.g. 9:30 or in 20 minutes" autocomplete="off" aria-label="Start later at" hidden>
+          <div class="intent-actions">
+            <button class="primary" type="submit" id="intent-submit">Start focus</button>
+            <button class="link" type="button" id="cancel-plan" hidden>Cancel</button>
+          </div>
         </form>
-        <p class="hint" id="call-hint"></p>
+        <div class="call-option">
+          <span class="hint" id="call-hint">Rather talk it out?</span>
+          <button class="link" id="call-now-empty" type="button">Call me now</button>
+        </div>
       </div>
 
       <!-- Plan set, no session -->
@@ -70,7 +80,7 @@
         <div class="row">
           <button class="primary" id="start-focus" type="button">Start focus</button>
           <button class="secondary" id="call-now" type="button">Call me now</button>
-          <button class="link" id="change-plan" type="button">Change</button>
+          <button class="link" id="change-plan" type="button">Edit plan</button>
         </div>
       </div>
 

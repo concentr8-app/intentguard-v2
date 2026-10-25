@@ -42,12 +42,30 @@ test('Call me now remains discoverable and disconnected users are sent to recove
   const html = fs.readFileSync(path.join(__dirname, '../../renderer/index.html'), 'utf8');
   const app = fs.readFileSync(path.join(__dirname, '../../renderer/app.js'), 'utf8');
 
+  assert.match(html, /id="plan-empty"[\s\S]*id="call-now-empty"/);
   assert.match(html, /id="plan-set"[\s\S]*id="call-now"/);
   assert.match(html, /id="connected-block"[\s\S]*id="call-now-settings"/);
   assert.doesNotMatch(app, /\$\('call-now'\)\.hidden = !settings\.serverConnected/);
   assert.match(app, /if \(!state\.settings\.serverConnected\) \{[\s\S]*openSettings\(\);[\s\S]*recovery code/);
   assert.match(app, /\$\('call-now-settings'\)\.addEventListener/);
   assert.match(app, /requestCallNow\(\$\('call-now-status'\)\)/);
+});
+
+test('planning actions distinguish starting, scheduling, and editing', () => {
+  const html = fs.readFileSync(path.join(__dirname, '../../renderer/index.html'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '../../renderer/app.js'), 'utf8');
+
+  assert.match(html, /id="intent-now"[\s\S]*>Now</);
+  assert.match(html, /id="intent-later"[\s\S]*>Later</);
+  assert.match(html, /id="change-plan"[\s\S]*>Edit plan</);
+  assert.match(html, /id="cancel-plan"[\s\S]*>Cancel</);
+  assert.match(app, /editing \? 'Save changes' : later \? 'Set plan' : 'Start focus'/);
+  assert.match(app, /start-focus'\)\.textContent = [^\n]*\? 'Start early' : 'Start focus'/);
+
+  const editBranch = app.match(/if \(editingPlan\) \{([\s\S]*?)\n  \}/)?.[1] || '';
+  assert.match(editBranch, /c8\.setIntent\(task, time\)/);
+  assert.match(editBranch, /return;/);
+  assert.doesNotMatch(editBranch, /startFocus/);
 });
 
 test('forgetting the call connection warns that recovery is required', () => {
