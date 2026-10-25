@@ -36,7 +36,7 @@ Real provider calls still depend on valid credentials, account state, phone veri
 ### "I'm stuck" recovery flow (on main; automated tests only so far)
 
 - `STUCK` is now a real state in the desktop app: calm → (optional) call → step → check-in, held in `Controller` and shown in `AppState.stuck`.
-- **Calm:** a full-screen breathing screen (`renderer/calm.html`) for up to 60 s; Esc or "I'm ready" ends it early. Warnings and blocking pause during calm and call.
+- **Calm:** a full-screen box-breathing screen (`renderer/calm.html`: in 4, hold 4, out 4, hold 4, with a countdown, a growing orb and a dot around a square) for four rounds (64 s); Esc or "I'm ready" ends it early. Warnings and blocking pause during calm and call.
 - **Step:** one tiny first step with a timer (usually 5 min). Claude (`src/services/stuck.ts`, `ANTHROPIC_API_KEY`) suggests it from the task and course; without a key or on any failure a fixed step is used, and each "Still stuck" gets a smaller one. The task's own bCourses link opens once; Claude never chooses URLs.
 - **Check-in:** "Did you get going?" → back to the session, a smaller step, or a real 5-minute break.
 - **Offer, then force:** 3 separate drifts within 10 minutes trigger a notification offering "I'm stuck". 5 separate drifts within that same window start the calm screen. A warning followed by its block counts as one drift. Drifts that already led to an episode do not start another one.
