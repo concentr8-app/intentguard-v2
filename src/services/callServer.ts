@@ -29,7 +29,7 @@ export interface CallRequest {
 export class CallServerError extends Error {}
 
 /** The shared call server of this app. Students only need an invite code to use it. */
-export const DEFAULT_SERVER_URL = 'https://intentguard-v-2.replit.app';
+export const DEFAULT_SERVER_URL = 'https://concentr8-calls-dqakcah0a0f7edhn.swedencentral-01.azurewebsites.net';
 
 async function errorMessage(res: Response): Promise<string | null> {
   try {
