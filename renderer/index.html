@@ -8,7 +8,7 @@
 </head>
 <body>
   <header class="bar">
-    <span class="brand">Concentr8</span>
+    <span class="brand"><img class="brand-mark" src="assets/bear.svg" alt="">Concentr8</span>
     <nav class="status" id="status" aria-label="Connections"></nav>
     <button class="ghost" id="open-settings" type="button">Settings</button>
   </header>
@@ -20,7 +20,7 @@
       <p class="lede">Concentr8 reads your bCourses assignments, calls you every morning to pick one, and keeps distractions off your screen until it's started.</p>
 
       <form id="canvas-form" class="stack">
-        <p class="muted"><strong>Want visible focus nudges?</strong> Open System Settings → Notifications → Electron, turn on Allow Notifications, and choose Banners.</p>
+        <p class="muted"><strong>Want visible focus nudges?</strong> Open System Settings → Notifications → Concentr8, turn on Allow Notifications, and choose Banners.</p>
         <ol class="howto">
           <li>Open <a href="https://bcourses.berkeley.edu/profile/settings" data-external>bCourses → Account → Settings</a>.</li>
           <li>Under <em>Approved integrations</em>, choose <em>New access token</em>. Name it “Concentr8”.</li>
@@ -211,6 +211,7 @@
       <button class="primary" id="save-settings" type="button">Save settings</button>
       <span class="muted" id="saved-note"></span>
     </div>
+    <p class="muted fineprint">Built by UC Berkeley students at Cal Hacks 13.0. Not affiliated with UC Berkeley. Not a medical product. Bear from Noto Emoji (Apache 2.0).</p>
   </aside>
 
   <script src="activity-view.js"></script>
