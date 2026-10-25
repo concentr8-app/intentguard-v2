@@ -23,6 +23,12 @@ interface Persisted {
   history: SessionSummary[];
 }
 
+/**
+ * Default call servers of earlier versions. Older installs saved the default address in their settings,
+ * so an update kept talking to a retired server. Students who never connected move to the current one.
+ */
+const RETIRED_DEFAULT_SERVERS = ['https://intentguard-v-2.replit.app'];
+
 export function defaultSettings(): Settings {
   return {
     canvasBaseUrl: BERKELEY_CANVAS,
@@ -56,6 +62,8 @@ export class Store {
       const raw = JSON.parse(fs.readFileSync(this.file, 'utf8')) as Partial<Persisted>;
       const settings = { ...defaultSettings(), ...(raw.settings ?? {}) };
       settings.rules = { ...DEFAULT_RULES, ...(raw.settings?.rules ?? {}) } as Rules;
+      const savedServer = String(settings.serverUrl || '').trim().replace(/\/+$/, '').toLowerCase();
+      if (!settings.serverConnected && RETIRED_DEFAULT_SERVERS.includes(savedServer)) settings.serverUrl = DEFAULT_SERVER_URL;
       return { ...empty, ...raw, settings };
     } catch {
       return empty;

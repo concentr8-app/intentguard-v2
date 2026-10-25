@@ -61,11 +61,16 @@ export const STUCK_OFFER_DRIFTS = 3;
 export const STUCK_FORCE_DRIFTS = 5;
 const STUCK_OFFER_WINDOW_MS = 10 * 60_000;
 const STUCK_OFFER_COOLDOWN_MS = 15 * 60_000;
+/** Status lines are short-lived: they go away after this long, or as soon as the screen they describe changes. */
+export const NOTICE_MS = 15_000;
+/** "Calling your phone now…" stays while a call usually lasts; the plan from the call replaces it. */
+const CALLING_NOTICE_MS = 3 * 60_000;
 
 export class Controller {
   private readonly focus: FocusEngine;
   private syncError: string | null = null;
-  private notice: string | null = null;
+  private notice: { text: string; until: number } | null = null;
+  private noticeTimer: ReturnType<typeof setTimeout> | null = null;
   private timers: NodeJS.Timeout[] = [];
   private checkInShownFor: string | null = null;
   private autoStartedCommitment: string | null = null;
@@ -124,6 +129,8 @@ export class Controller {
   stopTimers() {
     for (const t of this.timers) clearInterval(t);
     this.timers = [];
+    if (this.noticeTimer) clearTimeout(this.noticeTimer);
+    this.noticeTimer = null;
   }
 
   private async focusTick() {
@@ -168,7 +175,7 @@ export class Controller {
       verdict: this.focus.verdict,
       history: this.store.history,
       platformSupported: this.deps.platform.supported,
-      notice: this.notice,
+      notice: this.notice && this.now() < this.notice.until ? this.notice.text : null,
     };
   }
 
@@ -176,9 +183,23 @@ export class Controller {
     this.deps.emit(this.getState());
   }
 
-  private say(notice: string | null) {
-    this.notice = notice;
+  private say(notice: string | null, ms = NOTICE_MS) {
+    this.notice = notice ? { text: notice, until: this.now() + ms } : null;
+    if (this.noticeTimer) clearTimeout(this.noticeTimer);
+    this.noticeTimer = null;
+    if (notice) {
+      // Repaint once it has expired, even if nothing else changes on screen.
+      this.noticeTimer = setTimeout(() => this.emit(), ms + 100);
+      (this.noticeTimer as { unref?: () => void }).unref?.(); // never keeps the app (or a test run) alive
+    }
     this.emit();
+  }
+
+  /** The screen changed, so an earlier status line no longer applies. */
+  private clearNotice() {
+    this.notice = null;
+    if (this.noticeTimer) clearTimeout(this.noticeTimer);
+    this.noticeTimer = null;
   }
 
   // ---------- Canvas ----------
@@ -336,7 +357,7 @@ export class Controller {
     try {
       await this.pushTasksToServer(this.store.tasks);
       await server.callNow();
-      this.say('Calling your phone now…');
+      this.say('Calling your phone now…', CALLING_NOTICE_MS);
       return { ok: true };
     } catch (err) {
       return { ok: false, error: (err as Error).message };
@@ -363,6 +384,7 @@ export class Controller {
         next.startTime = remote.startTime;
         next.startAt = this.parseStart(remote.startTime);
         next.source = 'call';
+        this.clearNotice(); // the plan from the call replaces "Calling your phone now…"
         this.deps.notify(
           'Locked in from your call',
           `${remote.focusTask}${remote.startTime ? ` — starting ${remote.startTime}` : ''}`,
@@ -397,6 +419,7 @@ export class Controller {
       source: 'app',
     });
     this.autoStartedCommitment = null;
+    this.clearNotice();
     this.emit();
   }
 
@@ -404,11 +427,13 @@ export class Controller {
     const name = (task || this.today.focusTask || this.store.tasks[0]?.title || 'Deep work').trim();
     const match = matchTask(name, this.store.tasks);
     this.resetStuck();
+    this.clearNotice();
     this.focus.start(name, match?.url ?? null, minutes || this.settings.sessionMinutes);
     this.deps.notify('Focus on', `"${name}" for ${minutes || this.settings.sessionMinutes} min. I've got the distractions.`);
   }
 
   stopFocus() {
+    this.clearNotice();
     const summary = this.focus.stop();
     if (summary) this.store.addHistory(this.closeStuckForSummary(summary));
     this.emit();
@@ -442,6 +467,7 @@ export class Controller {
     const session = this.focus.session;
     if (!session) return { ok: false, error: 'Start a focus session first.' };
     if (this.stuck) return { ok: true };
+    this.clearNotice();
     const now = this.now();
     const episode: StuckEpisode = {
       startedAt: new Date(now).toISOString(),
