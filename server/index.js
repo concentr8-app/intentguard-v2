@@ -264,11 +264,20 @@ async function claudeOpeningLine(u) {
       }),
       signal: AbortSignal.timeout(6000),
     });
-    if (!res.ok) return fallback;
+    if (!res.ok) {
+      console.error(`[greeting] Claude answered ${res.status}; using the fixed greeting`);
+      return fallback;
+    }
     const body = await res.json();
     const text = String(body.content?.find((c) => c.type === 'text')?.text || '').replace(/\s+/g, ' ').trim();
-    return text.length >= 20 && text.length <= 400 && text.endsWith('?') ? text : fallback;
-  } catch {
+    if (text.length >= 20 && text.length <= 400 && text.endsWith('?')) {
+      console.log('[greeting] written by Claude');
+      return text;
+    }
+    console.error('[greeting] Claude answer did not fit; using the fixed greeting:', text.slice(0, 120));
+    return fallback;
+  } catch (err) {
+    console.error('[greeting] Claude request failed; using the fixed greeting:', err.name, err.message);
     return fallback;
   }
 }
@@ -623,9 +632,10 @@ async function impactSummary(u) {
         const body = await res.json();
         const t = String(body.content?.find((c) => c.type === 'text')?.text || '').replace(/\s+/g, ' ').trim();
         if (t.length >= 20 && t.length <= 400) text = t;
-      }
-    } catch {
-      // keep the fixed sentence
+        else console.error('[summary] Claude answer did not fit; using the fixed sentence');
+      } else console.error(`[summary] Claude answered ${res.status}; using the fixed sentence`);
+    } catch (err) {
+      console.error('[summary] Claude request failed; using the fixed sentence:', err.name, err.message);
     }
   }
   u.impactText = { key, text };
