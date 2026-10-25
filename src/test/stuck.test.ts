@@ -87,17 +87,39 @@ function setup(opts: { platform?: Platform; stepProvider?: StepProvider | null; 
   };
 }
 
+async function reachTerminalFallback(controller: Controller) {
+  controller.imStuck();
+  controller.calmDone();
+  await flush();
+  while (controller.getState().stuck?.step?.canRequestSmaller) {
+    controller.stuckAnswer('smaller');
+    await flush();
+  }
+  return controller.getState().stuck!;
+}
+
 // ---------- the step itself ----------
 
-test('fixed steps get smaller with every retry and keep the task link', () => {
+test('fixed steps form a decreasing, terminal ladder and keep the task link', () => {
   const input = { task: 'Essay', course: null, taskUrl: 'https://x.test/a', attempt: 1, previousStep: null };
-  const first = fallbackStep(input);
-  const last = fallbackStep({ ...input, attempt: 9 });
-  assert.equal(first.source, 'fallback');
-  assert.equal(first.url, 'https://x.test/a');
-  assert.equal(first.minutes, 5);
-  assert.equal(last.minutes, 2);
-  assert.notEqual(first.text, last.text);
+  const steps = [1, 2, 3, 4].map((attempt) => fallbackStep({ ...input, attempt }));
+  assert.deepEqual(
+    steps.map((step) => step.text),
+    [
+      'Open the assignment and read only the first question or instruction.',
+      'Read only the first sentence of the task. Stop there.',
+      'Put the assignment on screen and find the first thing it asks you to do.',
+      'For two minutes, just keep the assignment open. You do not have to start yet.',
+    ],
+  );
+  assert.ok(steps.every((step) => step.source === 'fallback' && step.url === 'https://x.test/a'));
+  assert.deepEqual(steps.map((step) => step.minutes), [5, 5, 5, 2]);
+  assert.deepEqual(steps.map((step) => step.canRequestSmaller), [true, true, true, false]);
+  assert.ok(!steps.some((step) => /what would ["“]done["”] look like/i.test(step.text)));
+
+  const beyondFinal = fallbackStep({ ...input, attempt: 99 });
+  assert.equal(beyondFinal.text, steps[3].text);
+  assert.equal(beyondFinal.canRequestSmaller, false);
 });
 
 test('step answers are validated and clamped', () => {
@@ -138,6 +160,7 @@ test('Claude step request: Messages API, structured output, task in the prompt, 
     minutes: 5,
     url: 'https://bcourses.berkeley.edu/courses/188/assignments/2',
     source: 'claude',
+    canRequestSmaller: true,
   });
   const [request] = requests;
   assert.equal(request.url, 'https://api.anthropic.com/v1/messages');
@@ -169,6 +192,7 @@ test('Claude failures of every kind fall back to the fixed step', async () => {
       previousStep: null,
     });
     assert.equal(step.source, 'fallback');
+    assert.equal(step.canRequestSmaller, true);
   }
 });
 
@@ -293,6 +317,58 @@ test('a double click on "Still stuck" asks for one smaller step, not two', async
     [2, 'step 1'],
   ]);
   assert.equal(controller.getState().stuck?.step?.text, 'step 2');
+});
+
+test('terminal fixed fallback rejects more retries but still allows starting or taking a break', async () => {
+  const first = setup();
+  first.controller.startFocus('Essay');
+  let stuck = await reachTerminalFallback(first.controller);
+  assert.equal(stuck.step?.source, 'fallback');
+  assert.equal(stuck.step?.canRequestSmaller, false);
+  assert.equal(stuck.step?.minutes, 2);
+  assert.equal(stuck.attempts, 4);
+
+  const terminalText = stuck.step?.text;
+  first.controller.stuckAnswer('smaller');
+  await flush();
+  stuck = first.controller.getState().stuck!;
+  assert.equal(stuck.attempts, 4);
+  assert.equal(stuck.step?.text, terminalText);
+
+  first.controller.stuckAnswer('started');
+  assert.equal(first.controller.getState().stuck, null);
+
+  const second = setup();
+  second.controller.startFocus('Essay');
+  await reachTerminalFallback(second.controller);
+  second.controller.stuckAnswer('break');
+  assert.equal(second.controller.getState().stuck, null);
+  assert.ok(second.controller.getState().session?.breakUntil);
+});
+
+test('Claude retries stay available beyond the fixed fallback count', async () => {
+  const attempts: number[] = [];
+  const provider: StepProvider = {
+    name: 'always-smaller',
+    model: 'fake',
+    suggest: async (input) => {
+      attempts.push(input.attempt);
+      return { text: `Claude step ${input.attempt}`, minutes: 5 };
+    },
+  };
+  const { controller } = setup({ stepProvider: provider });
+  controller.startFocus('Essay');
+  controller.imStuck();
+  controller.calmDone();
+  await flush();
+  for (let attempt = 2; attempt <= 6; attempt++) {
+    assert.equal(controller.getState().stuck?.step?.canRequestSmaller, true);
+    controller.stuckAnswer('smaller');
+    await flush();
+  }
+  assert.deepEqual(attempts, [1, 2, 3, 4, 5, 6]);
+  assert.equal(controller.getState().stuck?.step?.source, 'claude');
+  assert.equal(controller.getState().stuck?.step?.canRequestSmaller, true);
 });
 
 test('a step that arrives after the episode ended is ignored', async () => {
@@ -481,6 +557,26 @@ test('stuck call: offered only when the server supports it, and the agreed step 
   assert.equal(stuck.phase, 'step');
   assert.equal(stuck.step?.source, 'call');
   assert.equal(stuck.step?.text, 'Open search.py and read the comment above depthFirstSearch.');
+  assert.equal(stuck.step?.canRequestSmaller, true);
+});
+
+test('phone escalation remains available at the terminal fixed fallback', async (t) => {
+  mockServer(t, { features: ['stuck-call'], firstStep: 'no-claude' });
+  const { controller } = setup({ withServer: true });
+  controller.startFocus('Essay');
+  controller.imStuck();
+  await flush();
+  controller.calmDone();
+  await flush();
+  while (controller.getState().stuck?.step?.canRequestSmaller) {
+    controller.stuckAnswer('smaller');
+    await flush();
+  }
+  const stuck = controller.getState().stuck!;
+  assert.equal(stuck.step?.source, 'fallback');
+  assert.equal(stuck.step?.canRequestSmaller, false);
+  assert.equal(stuck.callAvailable, true);
+  assert.equal((await controller.stuckCall()).ok, true);
 });
 
 test('stuck call ignores the step from an earlier call and trusts server time, not the Mac clock', async (t) => {

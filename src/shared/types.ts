@@ -103,6 +103,7 @@ export interface FirstStep {
   minutes: number;
   url: string | null; // page to open for it (only the task's own link, never one a model made up)
   source: 'claude' | 'fallback' | 'call';
+  canRequestSmaller: boolean; // false only after the fixed fallback ladder is exhausted
 }
 
 export interface StuckEpisode {

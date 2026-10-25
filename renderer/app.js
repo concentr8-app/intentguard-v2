@@ -189,8 +189,12 @@ function paintStuck(stuck) {
 
   const stepShown = phase === 'step' && !!step;
   $('stuck-actions').hidden = !(stepShown || phase === 'checkin');
+  $('stuck-smaller').hidden = !step || !step.canRequestSmaller || (phase !== 'step' && phase !== 'checkin');
   $('stuck-call').hidden = !(stepShown && stuck.callAvailable);
   $('call-actions').hidden = phase !== 'call';
+  $('stuck-helper').textContent = stepShown
+    ? `Do this in your work. When you've started, press I'm in.${step.canRequestSmaller ? ' Still too big? Press Still stuck.' : ''}`
+    : '';
   const open = $('stuck-open');
   open.hidden = !(step && step.url) || phase === 'call' || phase === 'calm';
   if (step && step.url) open.href = step.url;
