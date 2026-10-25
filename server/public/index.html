@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Concentr8: start the first task</title>
 <meta name="description" content="Concentr8 calls you every morning, asks which task you will start and when, then keeps distractions away on your Mac. Made for Berkeley students with ADHD.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23184a39'/%3E%3Ccircle cx='32' cy='32' r='20' fill='none' stroke='%23f4f7f2' stroke-width='4' opacity='.6'/%3E%3Ccircle cx='32' cy='32' r='6' fill='%23ffd666'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22%3E%3Ccircle cx=%2264%22 cy=%2264%22 r=%2264%22 fill=%22%23CFE8C4%22/%3E%3Cg transform=%22translate%2818.1 20.3%29 scale%280.717%29%22%3E%3Cpath fill=%22%23855B52%22 d=%22M63.29,9.93c14.92,0.22,16.4,3.61,20.77,3.73c6.32,0.18,15.98-11.97,29.07-0.99 c12.9,10.82,2.39,27.8,2.39,27.8s7.18,12.72,8.02,32.1c0.61,14.03-4.79,31.49-29,41.39c-22.29,9.12-55.55,7.3-75.88-8.31 C2.9,93.56,4.01,75.92,4.44,69.91c1.13-15.77,8.02-28.44,8.02-28.44s-10.19-20.15,2.25-29.7c13.66-10.49,23.38,1.86,29,1.41 C47.8,12.84,49.14,9.72,63.29,9.93z%22/%3E%3Cpath fill=%22%23B99277%22 d=%22M35.98,20.77c-0.19-1.11-7.43-8.29-14.92-0.99c-5.77,5.63,0,15.42,0.99,14.64 c0.76-0.6,3.56-4.21,6.83-7.32C32.23,23.91,36.05,21.2,35.98,20.77z%22/%3E%3Cpath fill=%22%23B99277%22 d=%22M92.5,20.84c-0.05,0.62,3.81,2.95,7.32,6.26c3.55,3.35,6.75,7.67,7.32,7.6 c1.13-0.14,5.98-9.64-0.35-14.99S92.64,19.01,92.5,20.84z%22/%3E%3Cpath fill=%22%23F2A258%22 d=%22M64.51,60.38c14.64,0,23.42,16.52,22.9,26.84c-0.47,9.39-5.82,17.18-23.84,17.08 c-18.02-0.09-22.59-8.36-22.9-17.18C40.39,79.24,46.02,60.38,64.51,60.38z%22/%3E%3Cpath fill=%22%23171716%22 d=%22M92.92,59.7c0.33,4.16-1.9,7.95-6.17,7.63c-4.12-0.32-7.13-3.66-7.13-7.84s2.22-7.14,5.56-7.6 C89.26,51.32,92.45,53.79,92.92,59.7z%22/%3E%3Cpath fill=%22%232F3030%22 d=%22M74.55,76.99c-0.34,4.16-3.1,8.61-11.12,8.33c-6.73-0.24-9.9-4.72-10-8.89 c-0.14-5.89,3-8.06,10.61-8.17C72.72,68.15,75.02,71.27,74.55,76.99z%22/%3E%3Cpath fill=%22%23171716%22 d=%22M48.37,61.25c-0.43,4.15-4.33,7.06-7.98,6.17c-4.01-0.98-5.81-5.2-4.97-9.29 c0.75-3.66,3.96-6.51,7.6-6.1C46.82,52.45,48.91,56.02,48.37,61.25z%22/%3E%3Cpath fill=%22%232F3030%22 d=%22M63.99,95.04c5.49,0,8.49-3.03,9.34-3.87s1.99-2.28,3.75-0.84c1.5,1.22,0.02,3.12-0.66,3.85 c-1.22,1.31-4.9,5.31-12.93,4.95c-7.88-0.35-10.91-3.92-11.76-4.76c-0.84-0.84-2.25-3-0.66-4.22c1.91-1.46,2.53,0.19,4.5,1.78 S58.78,95.04,63.99,95.04z%22/%3E%3C/g%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&display=swap" rel="stylesheet">
@@ -41,9 +41,7 @@ p{margin:0}
 /* top bar */
 header{display:flex;align-items:center;justify-content:space-between;padding:22px 0}
 .brand{display:flex;align-items:center;gap:10px;font:700 1.25rem var(--display);letter-spacing:-.01em;text-decoration:none}
-.brand i{width:30px;height:30px;border-radius:9px;background:var(--call-deep);position:relative;display:block}
-.brand i::before{content:"";position:absolute;inset:6px;border:2.5px solid rgba(255,255,255,.6);border-radius:50%}
-.brand i::after{content:"";position:absolute;left:12px;top:12px;width:6px;height:6px;border-radius:50%;background:var(--sun)}
+.brand svg{width:34px;height:34px;display:block;flex:none}
 header a.top{font-size:.95rem;color:var(--mute);text-decoration:none;border-bottom:1px solid var(--line)}
 
 /* hero */
@@ -59,8 +57,8 @@ header a.top{font-size:.95rem;color:var(--mute);text-decoration:none;border-bott
 .phone{background:var(--ink);color:#f1f6f2;border-radius:30px;padding:26px 22px 28px;max-width:25rem;margin-left:auto;box-shadow:0 30px 60px -28px rgba(13,42,38,.6)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .phone{background:#06150f;border:1px solid var(--line)}}
 .phone .who{display:flex;align-items:center;gap:12px;padding-bottom:18px;border-bottom:1px solid rgba(255,255,255,.14);margin-bottom:18px}
-.phone .dot{width:44px;height:44px;border-radius:50%;background:var(--call);display:grid;place-items:center}
-.phone .dot::after{content:"";width:12px;height:12px;border-radius:50%;background:var(--sun)}
+.phone .dot{width:46px;height:46px;flex:none}
+.phone .dot svg{width:100%;height:100%;display:block}
 .phone .who b{display:block;font:700 1.05rem var(--display)}
 .phone .who span{font-size:.85rem;opacity:.7}
 .line{max-width:88%;padding:11px 15px;border-radius:18px;margin:10px 0;font-size:1rem;line-height:1.45;opacity:0;transform:translateY(6px);animation:in .5s forwards}
@@ -126,7 +124,7 @@ footer{padding:0 0 48px;color:var(--mute);font-size:.9rem}
 <body>
 <div class="wrap">
   <header>
-    <a class="brand" href="#top"><i aria-hidden="true"></i>Concentr8</a>
+    <a class="brand" href="#top"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" aria-hidden="true" focusable="false"><circle cx="64" cy="64" r="64" fill="#CFE8C4"/><g transform="translate(18.1 20.3) scale(0.717)"><path fill="#855B52" d="M63.29,9.93c14.92,0.22,16.4,3.61,20.77,3.73c6.32,0.18,15.98-11.97,29.07-0.99 c12.9,10.82,2.39,27.8,2.39,27.8s7.18,12.72,8.02,32.1c0.61,14.03-4.79,31.49-29,41.39c-22.29,9.12-55.55,7.3-75.88-8.31 C2.9,93.56,4.01,75.92,4.44,69.91c1.13-15.77,8.02-28.44,8.02-28.44s-10.19-20.15,2.25-29.7c13.66-10.49,23.38,1.86,29,1.41 C47.8,12.84,49.14,9.72,63.29,9.93z"/><path fill="#B99277" d="M35.98,20.77c-0.19-1.11-7.43-8.29-14.92-0.99c-5.77,5.63,0,15.42,0.99,14.64 c0.76-0.6,3.56-4.21,6.83-7.32C32.23,23.91,36.05,21.2,35.98,20.77z"/><path fill="#B99277" d="M92.5,20.84c-0.05,0.62,3.81,2.95,7.32,6.26c3.55,3.35,6.75,7.67,7.32,7.6 c1.13-0.14,5.98-9.64-0.35-14.99S92.64,19.01,92.5,20.84z"/><path fill="#F2A258" d="M64.51,60.38c14.64,0,23.42,16.52,22.9,26.84c-0.47,9.39-5.82,17.18-23.84,17.08 c-18.02-0.09-22.59-8.36-22.9-17.18C40.39,79.24,46.02,60.38,64.51,60.38z"/><path fill="#171716" d="M92.92,59.7c0.33,4.16-1.9,7.95-6.17,7.63c-4.12-0.32-7.13-3.66-7.13-7.84s2.22-7.14,5.56-7.6 C89.26,51.32,92.45,53.79,92.92,59.7z"/><path fill="#2F3030" d="M74.55,76.99c-0.34,4.16-3.1,8.61-11.12,8.33c-6.73-0.24-9.9-4.72-10-8.89 c-0.14-5.89,3-8.06,10.61-8.17C72.72,68.15,75.02,71.27,74.55,76.99z"/><path fill="#171716" d="M48.37,61.25c-0.43,4.15-4.33,7.06-7.98,6.17c-4.01-0.98-5.81-5.2-4.97-9.29 c0.75-3.66,3.96-6.51,7.6-6.1C46.82,52.45,48.91,56.02,48.37,61.25z"/><path fill="#2F3030" d="M63.99,95.04c5.49,0,8.49-3.03,9.34-3.87s1.99-2.28,3.75-0.84c1.5,1.22,0.02,3.12-0.66,3.85 c-1.22,1.31-4.9,5.31-12.93,4.95c-7.88-0.35-10.91-3.92-11.76-4.76c-0.84-0.84-2.25-3-0.66-4.22c1.91-1.46,2.53,0.19,4.5,1.78 S58.78,95.04,63.99,95.04z"/></g></svg>Concentr8</a>
     <a class="top" href="#faq">Questions</a>
   </header>
 
@@ -141,7 +139,7 @@ footer{padding:0 0 48px;color:var(--mute);font-size:.9rem}
       </div>
 
       <div class="phone" role="img" aria-label="Example of the morning call. Concentr8 asks which task you will start. You answer: the CS 188 project, at nine thirty. Concentr8 confirms.">
-        <div class="who"><div class="dot"></div><div><b>Concentr8</b><span>Example call, 8:00 a.m.</span></div></div>
+        <div class="who"><div class="dot"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" aria-hidden="true" focusable="false"><circle cx="64" cy="64" r="64" fill="#CFE8C4"/><g transform="translate(18.1 20.3) scale(0.717)"><path fill="#855B52" d="M63.29,9.93c14.92,0.22,16.4,3.61,20.77,3.73c6.32,0.18,15.98-11.97,29.07-0.99 c12.9,10.82,2.39,27.8,2.39,27.8s7.18,12.72,8.02,32.1c0.61,14.03-4.79,31.49-29,41.39c-22.29,9.12-55.55,7.3-75.88-8.31 C2.9,93.56,4.01,75.92,4.44,69.91c1.13-15.77,8.02-28.44,8.02-28.44s-10.19-20.15,2.25-29.7c13.66-10.49,23.38,1.86,29,1.41 C47.8,12.84,49.14,9.72,63.29,9.93z"/><path fill="#B99277" d="M35.98,20.77c-0.19-1.11-7.43-8.29-14.92-0.99c-5.77,5.63,0,15.42,0.99,14.64 c0.76-0.6,3.56-4.21,6.83-7.32C32.23,23.91,36.05,21.2,35.98,20.77z"/><path fill="#B99277" d="M92.5,20.84c-0.05,0.62,3.81,2.95,7.32,6.26c3.55,3.35,6.75,7.67,7.32,7.6 c1.13-0.14,5.98-9.64-0.35-14.99S92.64,19.01,92.5,20.84z"/><path fill="#F2A258" d="M64.51,60.38c14.64,0,23.42,16.52,22.9,26.84c-0.47,9.39-5.82,17.18-23.84,17.08 c-18.02-0.09-22.59-8.36-22.9-17.18C40.39,79.24,46.02,60.38,64.51,60.38z"/><path fill="#171716" d="M92.92,59.7c0.33,4.16-1.9,7.95-6.17,7.63c-4.12-0.32-7.13-3.66-7.13-7.84s2.22-7.14,5.56-7.6 C89.26,51.32,92.45,53.79,92.92,59.7z"/><path fill="#2F3030" d="M74.55,76.99c-0.34,4.16-3.1,8.61-11.12,8.33c-6.73-0.24-9.9-4.72-10-8.89 c-0.14-5.89,3-8.06,10.61-8.17C72.72,68.15,75.02,71.27,74.55,76.99z"/><path fill="#171716" d="M48.37,61.25c-0.43,4.15-4.33,7.06-7.98,6.17c-4.01-0.98-5.81-5.2-4.97-9.29 c0.75-3.66,3.96-6.51,7.6-6.1C46.82,52.45,48.91,56.02,48.37,61.25z"/><path fill="#2F3030" d="M63.99,95.04c5.49,0,8.49-3.03,9.34-3.87s1.99-2.28,3.75-0.84c1.5,1.22,0.02,3.12-0.66,3.85 c-1.22,1.31-4.9,5.31-12.93,4.95c-7.88-0.35-10.91-3.92-11.76-4.76c-0.84-0.84-2.25-3-0.66-4.22c1.91-1.46,2.53,0.19,4.5,1.78 S58.78,95.04,63.99,95.04z"/></g></svg></div><div><b>Concentr8</b><span>Example call, 8:00 a.m.</span></div></div>
         <div class="line a">Good morning. Two things are due soon: Project 2 for CompSci 188, and the reading quiz. Which one will you start with?</div>
         <div class="line b">The project.</div>
         <div class="line a">When will you start?</div>
@@ -167,6 +165,10 @@ footer{padding:0 0 48px;color:var(--mute);font-size:.9rem}
           <div><h3>You drift to YouTube</h3><p>A visible warning appears and you get a short grace period. If you stay, the app moves you back to your work instead of just scolding you.</p></div>
         </li>
         <li>
+          <time>10:15</time>
+          <div><h3>You are stuck</h3><p>Press I'm stuck. A calm screen guides one minute of box breathing, then you get one tiny first step for the next five minutes. Still stuck? A smaller step, or a short call to talk it through. After five distractions in ten minutes the calm screen starts by itself, and Esc ends it.</p></div>
+        </li>
+        <li>
           <time>11:00</time>
           <div><h3>You take a break on purpose</h3><p>Breaks are allowed. Pause the nudges, end the break when you are ready, and monitoring picks up again.</p></div>
         </li>
@@ -185,7 +187,7 @@ footer{padding:0 0 48px;color:var(--mute);font-size:.9rem}
         <div><h3>Task-aware focus</h3><p>The app compares what you are doing with the task you chose. Your course pages and the work itself count as focus. A blank tab does not count against you.</p></div>
         <div><h3>Nudges that move you back</h3><p>Known distraction sites and apps get a warning first. If you stay, the app returns you to where you were working.</p></div>
         <div><h3>Your phone number, your choice</h3><p>You pick the call time. You can delete your account from the app at any time, and the call stops.</p></div>
-        <div><h3>Simple to run</h3><p>Download, drag into Applications, enter your phone number. No terminal, no setup scripts.</p></div>
+        <div><h3>Help when you are stuck</h3><p>Breathe for a minute, then do one tiny step that takes five minutes or less. Claude writes the step from your task and course, never from your screen. Offline, a fixed step takes over.</p></div>
       </div>
     </section>
 
@@ -227,7 +229,7 @@ footer{padding:0 0 48px;color:var(--mute);font-size:.9rem}
     </div>
   </main>
 
-  <footer>Concentr8 was started at Cal Hacks 13.0. It is not a medical product.</footer>
+  <footer>Built by UC Berkeley students at Cal Hacks 13.0. Not affiliated with UC Berkeley. Concentr8 is not a medical product. Bear from <a href="https://github.com/googlefonts/noto-emoji">Noto Emoji</a> (Apache 2.0).</footer>
 </div>
 <script>
 try{
