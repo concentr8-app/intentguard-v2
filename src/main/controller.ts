@@ -27,7 +27,7 @@ import { FocusEngine } from '../services/focus';
 import { matchTask } from '../services/match';
 import type { Platform } from '../services/platform';
 import type { CachedSemanticClassifier, RelevanceLog } from '../services/semantic';
-import { type StepProvider, suggestFirstStep } from '../services/stuck';
+import { ServerStepProvider, type StepProvider, suggestFirstStep } from '../services/stuck';
 import { localDate, localHHMM, parseSpokenTime } from '../services/time';
 import type { Store } from './store';
 
@@ -672,7 +672,10 @@ export class Controller {
   }
 
   private fetchStep(previousStep: string | null): Promise<FirstStep> {
-    return suggestFirstStep(this.deps.stepProvider ?? null, this.stepInput(previousStep), (m) => this.log(m));
+    // A local key (development) wins; the downloaded app asks Claude through the call server once signed in.
+    const server = this.server();
+    const provider = this.deps.stepProvider ?? (server ? new ServerStepProvider(server) : null);
+    return suggestFirstStep(provider, this.stepInput(previousStep), (m) => this.log(m));
   }
 
   private async showStep(episode: StuckEpisode) {

@@ -188,6 +188,11 @@ const xml = (s) =>
  */
 const cartesiaReady = () => !!(env.CARTESIA_API_KEY && env.CARTESIA_AGENT_ID && env.CARTESIA_PHONE_NUMBER_ID);
 const PROVIDER = (env.CALL_PROVIDER || (cartesiaReady() ? 'cartesia' : env.TELNYX_API_KEY ? 'telnyx' : 'twilio')).toLowerCase();
+/**
+ * The stuck call ("I'm stuck" → "Talk it through on the phone") runs on its own Cartesia agent, so the morning
+ * agent stays untouched. It is announced to the app only once CARTESIA_STUCK_AGENT_ID is set.
+ */
+const stuckCallReady = () => PROVIDER === 'cartesia' && cartesiaReady() && !!env.CARTESIA_STUCK_AGENT_ID;
 
 const VOICE = env.CALL_VOICE || env.TWILIO_VOICE || 'Polly.Joanna-Neural';
 
@@ -230,6 +235,16 @@ function openingLine(u) {
   const count = top.length === 1 ? 'one thing' : `${['', 'one', 'two', 'three'][top.length]} things`;
   return `${greeting}, this is Concentr8. You have ${count} coming up. ${list}. Which one will you start with?`;
 }
+
+/** What the stuck agent says first. The calm screen already did the breathing; the call is about one tiny step. */
+function stuckOpeningLine(task) {
+  const what = task ? ` on ${task}` : '';
+  return `Hi, it's Concentr8. You pressed I'm stuck${what}. That's okay, it happens to everyone. ` +
+    "There's no pressure, we'll just find one tiny first step together. What feels hardest about starting right now?";
+}
+
+/** The task name the app sends for a stuck call: plain text, short enough to read out loud. */
+const cleanTask = (task) => String(task || '').replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
 
 /** "Um, I think I'll start with the CS project" -> "the CS project" */
 function cleanAnswer(speech) {
@@ -279,6 +294,66 @@ async function claudeUnderstand(u, speech) {
     // fall back to the fixed script
   }
   return null;
+}
+
+// ---------- optional: Claude suggests the first step when a student presses "I'm stuck" ----------
+// The Mac app cannot ship an API key, so a signed-in app asks the server. Only the task name, the course and the
+// previous step leave the Mac; the app falls back to fixed steps on any error.
+
+const MAX_STEPS_PER_USER_PER_DAY = Number(env.MAX_STEPS_PER_USER_PER_DAY || 40);
+const MAX_STEPS_PER_DAY = Number(env.MAX_STEPS_PER_DAY || 3000);
+
+const STEP_SYSTEM_PROMPT = [
+  'You help a university student who feels stuck and cannot start a task.',
+  'Reply with exactly one tiny, concrete first action they can do at their computer within the given minutes.',
+  'Start with a verb. Under 25 words. No lists, no plans, no pep talk, no medical or therapy language.',
+  'Only mention files, pages or details that are clearly implied by the task text; never invent links or file names.',
+  'If the task is vague, suggest a step that makes it clearer.',
+  'If this is a retry, make the action clearly smaller and easier than the previous one.',
+].join(' ');
+
+const STEP_SCHEMA = {
+  type: 'object',
+  properties: { step: { type: 'string' }, minutes: { type: 'integer' } },
+  required: ['step', 'minutes'],
+  additionalProperties: false,
+};
+
+const oneLine = (value, max) => String(value || '').replace(/\s+/g, ' ').trim().slice(0, max);
+
+async function claudeFirstStep(body) {
+  const task = oneLine(body.task, 300);
+  if (!task) throw httpError(400, 'Missing task.');
+  const attempt = Math.max(1, Math.min(10, Math.round(Number(body.attempt) || 1)));
+  const lines = [`Task: ${task}`];
+  const course = oneLine(body.course, 100);
+  if (course) lines.push(`Course: ${course}`);
+  lines.push('Minutes available: 5');
+  const previous = oneLine(body.previous_step, 300);
+  if (attempt > 1 && previous) lines.push(`Retry ${attempt}. This step was still too big: "${previous}"`);
+
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+    body: JSON.stringify({
+      model: env.ANTHROPIC_MODEL || 'claude-haiku-5-5',
+      max_tokens: 200,
+      system: STEP_SYSTEM_PROMPT,
+      messages: [{ role: 'user', content: lines.join('\n') }],
+      output_config: { format: { type: 'json_schema', schema: STEP_SCHEMA } },
+    }),
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!res.ok) throw httpError(502, `Claude answered ${res.status}`);
+  const data = await res.json();
+  if (data.stop_reason === 'refusal' || data.stop_reason === 'max_tokens') throw httpError(502, `Claude stopped early (${data.stop_reason})`);
+  const text = (data.content || []).find((c) => c.type === 'text')?.text;
+  let value;
+  try { value = JSON.parse(text || ''); } catch { throw httpError(502, 'Claude did not answer with a step'); }
+  const step = oneLine(value.step, 1000);
+  if (!step || step.length > 240) throw httpError(502, 'Claude did not answer with a usable step');
+  const minutes = Math.min(10, Math.max(2, Math.round(Number(value.minutes) || 5)));
+  return { step, minutes };
 }
 
 // ---------- optional: read Canvas directly, so the call works even when the Mac is off ----------
@@ -391,7 +466,7 @@ function globalToday() {
   return data.global;
 }
 
-async function placeCall(req, u) {
+async function placeCall(req, u, opts = {}) {
   await refreshCanvas(u);
   const to = phoneOf(u);
   if (!to) throw httpError(400, 'No phone number to call. Set one in the app (Settings).');
@@ -402,7 +477,7 @@ async function placeCall(req, u) {
   if (g.calls >= MAX_CALLS_PER_DAY) throw httpError(429, 'The call server reached its daily limit. Try again tomorrow.');
   const base = publicBase(req);
   const callId =
-    PROVIDER === 'cartesia' ? await placeCartesiaCall(u, to)
+    PROVIDER === 'cartesia' ? await placeCartesiaCall(u, to, opts)
     : PROVIDER === 'telnyx' ? await placeTelnyxCall(u, to, base)
     : await placeTwilioCall(u, to, base);
   u.calls.count += 1;
@@ -418,18 +493,23 @@ async function placeCall(req, u) {
  * The agent greets with {{opening_line}} and saves the plan by calling our /cartesia/save-plan webhook tool
  * with {{user_id}}, so the answer lands with the right student.
  */
-async function placeCartesiaCall(u, to) {
-  const { CARTESIA_API_KEY: key, CARTESIA_AGENT_ID: agent, CARTESIA_PHONE_NUMBER_ID: from } = env;
+async function placeCartesiaCall(u, to, opts = {}) {
+  const { CARTESIA_API_KEY: key, CARTESIA_PHONE_NUMBER_ID: from } = env;
+  const stuck = opts.reason === 'stuck';
+  const agent = stuck ? env.CARTESIA_STUCK_AGENT_ID : env.CARTESIA_AGENT_ID;
   if (!key || !agent || !from) {
     throw httpError(500, 'Cartesia is not configured (CARTESIA_API_KEY, CARTESIA_AGENT_ID, CARTESIA_PHONE_NUMBER_ID)');
   }
+  const variables = stuck
+    ? { user_id: u.id, opening_line: stuckOpeningLine(opts.task), task: opts.task || 'their task' }
+    : { user_id: u.id, opening_line: openingLine(u) };
   const res = await fetch('https://api.cartesia.ai/agents/calls', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Cartesia-Version': env.CARTESIA_VERSION || '2026-08-14', 'Content-Type': 'application/json' },
     body: JSON.stringify({
       from_number_id: from,
       agent_id: agent,
-      outbound_calls: [{ to_number: to, dynamic_variables: { user_id: u.id, opening_line: openingLine(u) } }],
+      outbound_calls: [{ to_number: to, dynamic_variables: variables }],
     }),
     signal: AbortSignal.timeout(10_000),
   });
@@ -588,6 +668,8 @@ function todayResponse(u) {
     startTime: t.startTime,
     lastCallAt: u.lastCallAt,
     lastCallStatus: u.lastCallStatus,
+    firstStep: t.firstStep || null, // agreed on a stuck call
+    firstStepAt: t.firstStepAt || null,
   };
 }
 
@@ -657,6 +739,8 @@ async function route(req, res) {
       cartesiaAgent: !!env.CARTESIA_AGENT_ID,
       cartesiaNumber: !!env.CARTESIA_PHONE_NUMBER_ID,
       cartesiaToolSecret: !!env.CARTESIA_WEBHOOK_SECRET,
+      cartesiaStuckAgent: !!env.CARTESIA_STUCK_AGENT_ID,
+      features: [...(stuckCallReady() ? ['stuck-call'] : []), ...(env.ANTHROPIC_API_KEY ? ['first-step'] : [])],
       users: Object.keys(data.users).length,
       signupsOpen: signupsOpen(),
       inviteRequired: !openSignups() && !!env.REGISTER_CODE,
@@ -711,6 +795,21 @@ async function route(req, res) {
       return send(res, 200, { ok: true, count: u.tasks.length });
     }
     if (p === '/api/today' && m === 'GET') return send(res, 200, todayResponse(u));
+    if (p === '/api/first-step' && m === 'POST') {
+      if (!env.ANTHROPIC_API_KEY) throw httpError(503, 'This call server has no Claude key.');
+      let body;
+      try { body = JSON.parse((await readBody(req)) || '{}'); } catch { throw httpError(400, 'The request body is not valid JSON.'); }
+      const date = localDate(u);
+      if (!u.steps || u.steps.date !== date) u.steps = { date, count: 0 };
+      if (u.steps.count >= MAX_STEPS_PER_USER_PER_DAY) throw httpError(429, 'Too many steps today.');
+      const g = globalToday();
+      if ((g.steps || 0) >= MAX_STEPS_PER_DAY) throw httpError(429, 'The server reached its daily step limit.');
+      const result = await claudeFirstStep(body);
+      u.steps.count += 1;
+      g.steps = (g.steps || 0) + 1;
+      save();
+      return send(res, 200, result);
+    }
     if (p === '/api/tasks' && m === 'GET') {
       await refreshCanvas(u);
       return send(res, 200, { tasks: u.tasks });
@@ -725,8 +824,18 @@ async function route(req, res) {
       return send(res, 200, { ok: true });
     }
     if ((p === '/api/call-now' && m === 'POST') || (p === '/cron/morning' && m === 'GET')) {
-      u.paused = false; // asking for a call again ends a "stop"
-      const callSid = await placeCall(req, u);
+      let opts = {};
+      if (m === 'POST') {
+        // Older apps send no body: that is the morning call.
+        let body;
+        try { body = JSON.parse((await readBody(req)) || '{}'); } catch { throw httpError(400, 'The request body is not valid JSON.'); }
+        if (body && body.reason === 'stuck') {
+          if (!stuckCallReady()) throw httpError(400, 'This call server cannot place a stuck call.');
+          opts = { reason: 'stuck', task: cleanTask(body.task) };
+        }
+      }
+      if (!opts.reason) u.paused = false; // asking for a morning call again ends a "stop"
+      const callSid = await placeCall(req, u, opts);
       // A cron hit at/after call time counts as today's morning call; a test hit at 2 a.m. doesn't.
       if (p === '/cron/morning' && localHHMM(u) >= (u.callTime || '08:00')) u.lastAutoCallDate = localDate(u);
       save();
@@ -770,6 +879,15 @@ async function route(req, res) {
       return send(res, 200, 'Done. The student will not get automatic calls anymore. Confirm that kindly and say goodbye.', 'text/plain');
     }
     const t = today(u);
+    const firstStep = String(body.first_step || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+    if (firstStep) {
+      // From the stuck call: one tiny step for the next 5 minutes. The app polls /api/today for it.
+      t.firstStep = firstStep;
+      t.firstStepAt = new Date().toISOString();
+      u.lastCallStatus = 'completed';
+      save();
+      return send(res, 200, `Saved the first step: ${firstStep.replace(/\.$/, '')}. Read it back in one short, warm sentence, say the app now shows it with a 5-minute timer, and end the call.`, 'text/plain');
+    }
     const task = String(body.task || '').trim().slice(0, 200);
     const startTime = String(body.start_time || '').trim().replace(/[!?]+$/, '').slice(0, 60);
     if (!task) throw httpError(400, 'Missing task. Ask the student which task they will start.');

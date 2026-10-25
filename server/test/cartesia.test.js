@@ -25,7 +25,14 @@ const { server, data } = require('../index.js');
 const cartesiaCalls = [];
 let cartesiaAnswer = (body) => ({ status: 200, json: { calls: [{ agent_call_id: 'call_1' }] } });
 const realFetch = globalThis.fetch;
+const claudeCalls = [];
+let claudeAnswer = () => ({ status: 200, json: { stop_reason: 'end_turn', content: [{ type: 'text', text: '{"step":"Open search.py and read the comment above depthFirstSearch.","minutes":5}' }] } });
 globalThis.fetch = async (url, opts) => {
+  if (String(url).startsWith('https://api.anthropic.com/')) {
+    claudeCalls.push({ headers: opts.headers, body: JSON.parse(opts.body) });
+    const a = claudeAnswer();
+    return new Response(JSON.stringify(a.json), { status: a.status });
+  }
   if (String(url).startsWith('https://api.cartesia.ai/')) {
     cartesiaCalls.push({ url: String(url), headers: opts.headers, body: opts.body ? JSON.parse(opts.body) : null });
     const a = cartesiaAnswer(opts.body ? JSON.parse(opts.body) : null);
@@ -124,4 +131,101 @@ test('open sign-ups: no invite code needed, but an existing number cannot be tak
     assert.ok((await a.json()).token);
     assert.equal((await reg('+14155550111')).status, 409);
   } finally { delete process.env.OPEN_SIGNUPS; }
+});
+
+// ---------- the stuck call ("I'm stuck" → "Talk it through on the phone") ----------
+
+test('the stuck call is announced only once its own agent is configured', async () => {
+  delete process.env.CARTESIA_STUCK_AGENT_ID;
+  let h = await (await fetch(base + '/api/health')).json();
+  assert.deepEqual(h.features, []);
+  const s = await signup('4155557777');
+  const refused = await post('/api/call-now', { reason: 'stuck', task: 'Essay' }, s.token);
+  assert.equal(refused.status, 400, 'no stuck call without the stuck agent');
+
+  process.env.CARTESIA_STUCK_AGENT_ID = 'agent_stuck';
+  try {
+    h = await (await fetch(base + '/api/health')).json();
+    assert.deepEqual(h.features, ['stuck-call']);
+    assert.equal(h.cartesiaStuckAgent, true);
+  } finally { delete process.env.CARTESIA_STUCK_AGENT_ID; }
+});
+
+test('a stuck call uses the stuck agent and names the task; the morning call is unchanged', async () => {
+  process.env.CARTESIA_STUCK_AGENT_ID = 'agent_stuck';
+  try {
+    const s = await signup('4155558888');
+    data.users[s.userId].paused = true; // said "stop" to morning calls
+    cartesiaCalls.length = 0;
+    const r = await post('/api/call-now', { reason: 'stuck', task: 'CS 188\nProject 2' }, s.token);
+    assert.equal(r.status, 200);
+    const vars = cartesiaCalls[0].body.outbound_calls[0].dynamic_variables;
+    assert.equal(cartesiaCalls[0].body.agent_id, 'agent_stuck');
+    assert.equal(vars.user_id, s.userId);
+    assert.equal(vars.task, 'CS 188 Project 2');
+    assert.match(vars.opening_line, /You pressed I'm stuck on CS 188 Project 2/);
+    assert.equal(data.users[s.userId].paused, true, 'a stuck call does not turn morning calls back on');
+
+    const morning = await post('/api/call-now', {}, s.token);
+    assert.equal(morning.status, 200);
+    assert.equal(cartesiaCalls[1].body.agent_id, 'agent_123');
+    assert.equal(cartesiaCalls[1].body.outbound_calls[0].dynamic_variables.task, undefined);
+  } finally { delete process.env.CARTESIA_STUCK_AGENT_ID; }
+});
+
+test('the first step from a stuck call reaches /api/today with its time', async () => {
+  const a = await signup('4155559999');
+  const before = await (await fetch(base + '/api/today', { headers: { Authorization: `Bearer ${a.token}` } })).json();
+  assert.equal(before.firstStep, null);
+  assert.equal(before.firstStepAt, null);
+
+  const r = await post('/cartesia/save-plan', { user_id: a.userId, first_step: '  Open the spec and read only Question 1.  ' }, 'tool-secret');
+  assert.equal(r.status, 200);
+  assert.match(await r.text(), /Saved the first step: Open the spec and read only Question 1/);
+  const after = await (await fetch(base + '/api/today', { headers: { Authorization: `Bearer ${a.token}` } })).json();
+  assert.equal(after.firstStep, 'Open the spec and read only Question 1.');
+  assert.ok(Date.parse(after.firstStepAt) > 0);
+  assert.equal(after.focusTask, null, 'a first step does not replace the plan of the day');
+});
+
+test('a call-now body that is not JSON is refused', async () => {
+  const s = await signup('4155550000');
+  const r = await fetch(base + '/api/call-now', { method: 'POST', headers: { Authorization: `Bearer ${s.token}`, 'Content-Type': 'application/json' }, body: '{oops' });
+  assert.equal(r.status, 400);
+});
+
+// ---------- Claude's first step for "I'm stuck" (the Mac app ships no API key) ----------
+
+test('first step: Claude through the server, only for signed-in students, with a daily cap', async () => {
+  const s = await signup('4155551212');
+  delete process.env.ANTHROPIC_API_KEY;
+  assert.equal((await post('/api/first-step', { task: 'Project 2' }, s.token)).status, 503, 'no key, no Claude');
+  let h = await (await fetch(base + '/api/health')).json();
+  assert.ok(!h.features.includes('first-step'));
+
+  process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+  try {
+    h = await (await fetch(base + '/api/health')).json();
+    assert.ok(h.features.includes('first-step'));
+    assert.equal((await post('/api/first-step', { task: 'Project 2' })).status, 401, 'needs a student token');
+
+    claudeCalls.length = 0;
+    const r = await post('/api/first-step', { task: 'Project 2', course: 'COMPSCI 188', attempt: 2, previous_step: 'Read the spec' }, s.token);
+    assert.equal(r.status, 200);
+    assert.deepEqual(await r.json(), { step: 'Open search.py and read the comment above depthFirstSearch.', minutes: 5 });
+    const sent = claudeCalls[0];
+    assert.equal(sent.headers['x-api-key'], 'sk-ant-test');
+    assert.ok(sent.body.output_config.format.schema, 'structured output');
+    assert.match(sent.body.messages[0].content, /Task: Project 2\nCourse: COMPSCI 188/);
+    assert.match(sent.body.messages[0].content, /Retry 2\. This step was still too big: "Read the spec"/);
+
+    assert.equal((await post('/api/first-step', { course: 'x' }, s.token)).status, 400, 'a task is required');
+    claudeAnswer = () => ({ status: 200, json: { stop_reason: 'end_turn', content: [{ type: 'text', text: 'not json' }] } });
+    assert.equal((await post('/api/first-step', { task: 'Project 2' }, s.token)).status, 502, 'a broken answer is an error, so the app falls back');
+    claudeAnswer = () => ({ status: 529, json: {} });
+    assert.equal((await post('/api/first-step', { task: 'Project 2' }, s.token)).status, 502);
+
+    data.users[s.userId].steps = { date: data.users[s.userId].steps.date, count: 40 };
+    assert.equal((await post('/api/first-step', { task: 'Project 2' }, s.token)).status, 429, 'daily cap per student');
+  } finally { delete process.env.ANTHROPIC_API_KEY; }
 });

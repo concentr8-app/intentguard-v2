@@ -17,6 +17,7 @@ import {
   DEFAULT_STEP_MODEL,
   fallbackStep,
   parseStep,
+  ServerStepProvider,
   type StepProvider,
   suggestFirstStep,
 } from '../services/stuck';
@@ -413,7 +414,7 @@ test('a warning followed by its block counts as one drift', () => {
 
 function mockServer(
   t: { after(fn: () => void): void },
-  opts: { features?: string[]; failCall?: boolean; existingStep?: { text: string; at: string } },
+  opts: { features?: string[]; failCall?: boolean; existingStep?: { text: string; at: string }; firstStep?: { step: string; minutes: number } | 'no-claude' },
 ) {
   const calls: Array<{ path: string; body: unknown }> = [];
   let todayStep: { firstStep: string; firstStepAt: string } | null = opts.existingStep
@@ -427,6 +428,10 @@ function mockServer(
     if (url === '/api/health') body = { ok: true, ...(opts.features ? { features: opts.features } : {}) };
     if (url === '/api/today') {
       body = { date: '2026-10-24', focusTask: null, startTime: null, lastCallAt: null, lastCallStatus: null, ...(todayStep ?? {}) };
+    }
+    if (url === '/api/first-step') {
+      if (opts.firstStep === 'no-claude') return new Response(JSON.stringify({ error: 'This call server has no Claude key.' }), { status: 503 });
+      if (opts.firstStep) body = opts.firstStep;
     }
     if (url === '/api/call-now') {
       if (opts.failCall) return new Response(JSON.stringify({ error: 'Cartesia: the call did not start' }), { status: 502 });
@@ -562,4 +567,48 @@ test('an older call server without stuck support never gets a stuck call', async
   await flush();
   assert.equal((await controller.stuckCall()).ok, false);
   assert.ok(!server.calls.some((c) => c.path === 'POST /api/call-now'));
+});
+
+// ---------- Claude's step through the call server (the downloaded app ships no API key) ----------
+
+test('ServerStepProvider sends only task, course and the previous step, and checks the answer', async () => {
+  const sent: unknown[] = [];
+  const provider = new ServerStepProvider({
+    firstStep: async (input) => {
+      sent.push(input);
+      return { step: '  Open search.py and   read the comment above depthFirstSearch. ', minutes: 30 };
+    },
+  });
+  const step = await provider.suggest({ task: 'Project 2', course: 'COMPSCI 188', taskUrl: 'https://secret.test/x', attempt: 2, previousStep: 'Read the spec' });
+  assert.deepEqual(sent, [{ task: 'Project 2', course: 'COMPSCI 188', attempt: 2, previousStep: 'Read the spec' }], 'no URL leaves the Mac');
+  assert.equal(step.text, 'Open search.py and read the comment above depthFirstSearch.');
+  assert.equal(step.minutes, 10, 'minutes are clamped');
+  const broken = new ServerStepProvider({ firstStep: async () => ({ step: '', minutes: 5 }) });
+  await assert.rejects(broken.suggest({ task: 'x', course: null, taskUrl: null, attempt: 1, previousStep: null }));
+});
+
+test('signed in without a local key: the step comes from Claude through the server', async (t) => {
+  const server = mockServer(t, { firstStep: { step: 'Open search.py and read the comment above depthFirstSearch.', minutes: 5 } });
+  const { controller } = setup({ withServer: true });
+  controller.startFocus('Project 2: Multi-Agent Search');
+  controller.imStuck();
+  controller.calmDone();
+  await new Promise((r) => setTimeout(r, 0));
+  const step = controller.getState().stuck?.step;
+  assert.equal(step?.text, 'Open search.py and read the comment above depthFirstSearch.');
+  assert.equal(step?.source, 'claude');
+  const request = server.calls.find((c) => c.path === 'POST /api/first-step');
+  assert.deepEqual(request?.body, { task: 'Project 2: Multi-Agent Search', course: 'COMPSCI 188', attempt: 1, previous_step: null });
+  controller.stopTimers();
+});
+
+test('a server without Claude falls back to the fixed step', async (t) => {
+  mockServer(t, { firstStep: 'no-claude' });
+  const { controller } = setup({ withServer: true });
+  controller.startFocus('Project 2: Multi-Agent Search');
+  controller.imStuck();
+  controller.calmDone();
+  await new Promise((r) => setTimeout(r, 0));
+  assert.equal(controller.getState().stuck?.step?.source, 'fallback');
+  controller.stopTimers();
 });
