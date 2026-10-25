@@ -23,7 +23,7 @@ Settings → **Configuration**:
 |---|---|
 | `DATA_FILE` | `/home/data/data.json` (`/home` is the persistent folder on Linux App Service, unverified) |
 | `APP_API_KEY` | a new long random string (owner key) |
-| `REGISTER_CODE` | the invite code you give students |
+| `OPEN_SIGNUPS` | `true` = anyone can sign up without a code. Instead of it, `REGISTER_CODE` = an invite code |
 | `PUBLIC_URL` | `https://<name>.azurewebsites.net` |
 | `CARTESIA_API_KEY`, `CARTESIA_AGENT_ID`, `CARTESIA_PHONE_NUMBER_ID`, `CARTESIA_WEBHOOK_SECRET` | see `CARTESIA-SETUP.md` |
 

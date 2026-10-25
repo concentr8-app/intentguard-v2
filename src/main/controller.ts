@@ -271,7 +271,6 @@ export class Controller {
     const phoneNumber = input.phoneNumber.trim();
     const callTime = input.callTime || '08:00';
     if (!phoneNumber) return { ok: false, error: 'Enter your phone number first.' };
-    if (!input.inviteCode.trim()) return { ok: false, error: 'Enter the invite code.' };
     try {
       const { token } = await CallServerClient.register(serverUrl, {
         phoneNumber,

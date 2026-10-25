@@ -114,3 +114,14 @@ test('"stop calling me" through the tool pauses the morning calls', async () => 
   assert.equal(r.status, 200);
   assert.equal(data.users[a.userId].paused, true);
 });
+
+test('open sign-ups: no invite code needed, but an existing number cannot be taken over', async () => {
+  process.env.OPEN_SIGNUPS = 'true';
+  try {
+    const reg = (phone) => fetch(`${base}/api/register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phoneNumber: phone, consent: true }) });
+    const a = await reg('+14155550111');
+    assert.equal(a.status, 200);
+    assert.ok((await a.json()).token);
+    assert.equal((await reg('+14155550111')).status, 409);
+  } finally { delete process.env.OPEN_SIGNUPS; }
+});

@@ -98,3 +98,8 @@ curl -X POST "localhost:3000/twilio/gather?step=task&try=0" --data-urlencode "Sp
 curl -X POST "localhost:3000/twilio/gather?step=time&try=0" --data-urlencode "SpeechResult=9:30 a.m."
 curl -H "Authorization: Bearer test" localhost:3000/api/today
 ```
+
+## Who may sign up
+
+`OPEN_SIGNUPS=true`: anyone, no code. `REGISTER_CODE=<word>`: only people with the code. Neither: closed.
+Open mode has no phone verification yet: someone could enter a stranger's number and the server would call it (the daily caps limit the damage), and a number that is already signed up cannot sign up again (HTTP 409), so nobody can take over an account.

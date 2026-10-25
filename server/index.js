@@ -377,6 +377,8 @@ function publicBase(req) {
   return `http://localhost:${PORT}`;
 }
 
+const openSignups = () => String(env.OPEN_SIGNUPS || '').toLowerCase() === 'true';
+const signupsOpen = () => openSignups() || !!env.REGISTER_CODE;
 const MAX_CALLS_PER_USER_PER_DAY = Number(env.MAX_CALLS_PER_USER_PER_DAY || 10);
 const MAX_CALLS_PER_DAY = Number(env.MAX_CALLS_PER_DAY || 300);
 const MAX_SIGNUPS_PER_DAY = Number(env.MAX_SIGNUPS_PER_DAY || 200);
@@ -655,21 +657,24 @@ async function route(req, res) {
       cartesiaNumber: !!env.CARTESIA_PHONE_NUMBER_ID,
       cartesiaToolSecret: !!env.CARTESIA_WEBHOOK_SECRET,
       users: Object.keys(data.users).length,
-      signupsOpen: !!env.REGISTER_CODE,
+      signupsOpen: signupsOpen(),
+      inviteRequired: !openSignups() && !!env.REGISTER_CODE,
       publicBase: publicBase(req),
     });
   }
 
-  // --- sign-up (no login yet; protected by the invite code) ---
+  // --- sign-up (no login yet; closed, invite code, or open to everyone with OPEN_SIGNUPS=true) ---
   if (p === '/api/register' && m === 'POST') {
     const body = JSON.parse((await readBody(req)) || '{}');
-    if (!env.REGISTER_CODE) throw httpError(403, 'Sign-ups are closed on this server.');
-    if (!safeEqual(String(body.inviteCode || '').trim(), env.REGISTER_CODE)) throw httpError(403, 'Wrong invite code.');
+    if (!signupsOpen()) throw httpError(403, 'Sign-ups are closed on this server.');
+    if (!openSignups() && !safeEqual(String(body.inviteCode || '').trim(), env.REGISTER_CODE)) throw httpError(403, 'Wrong invite code.');
     if (body.consent !== true) throw httpError(400, 'You need to agree to get a morning phone call.');
     const phone = normalizePhone(body.phoneNumber);
     if (!phone) throw httpError(400, 'That phone number does not look right. Use the +1 415 555 1234 format.');
     const g = globalToday();
     let u = userByPhone(phone);
+    // Without an invite code, anyone could sign up with someone else's number and take over that account.
+    if (u && openSignups()) throw httpError(409, 'This number is already signed up. Open the app on the Mac you used first, or write to the Concentr8 team.');
     if (!u) {
       if (g.signups >= MAX_SIGNUPS_PER_DAY) throw httpError(429, 'Too many sign-ups today. Try again tomorrow.');
       g.signups += 1;
@@ -894,7 +899,7 @@ if (require.main === module) {
   server.listen(PORT, () => {
     console.log(`Concentr8 call server on :${PORT} (public: ${publicBase(null)}, calls via ${PROVIDER})`);
     if (!env.APP_API_KEY) console.warn('APP_API_KEY is not set: only students who signed up can use the app API.');
-    if (!env.REGISTER_CODE) console.warn('REGISTER_CODE is not set: nobody can sign up yet (set an invite code to let friends join).');
+    if (!signupsOpen()) console.warn('Sign-ups are closed: set OPEN_SIGNUPS=true (anyone) or REGISTER_CODE (invite code).');
   });
   setInterval(schedulerTick, 30_000);
   schedulerTick();
