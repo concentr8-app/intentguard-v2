@@ -236,6 +236,43 @@ function openingLine(u) {
   return `${greeting}, this is Concentr8. You have ${count} coming up. ${list}. Which one will you start with?`;
 }
 
+/**
+ * Claude writes the morning greeting from the student's real deadlines. Any failure (no key, timeout, odd answer)
+ * falls back to the fixed openingLine(u), so a call is never blocked by Claude.
+ */
+async function claudeOpeningLine(u) {
+  const fallback = openingLine(u);
+  if (!env.ANTHROPIC_API_KEY || u.tasks.length === 0) return fallback;
+  const top = [...u.tasks]
+    .sort((a, b) => (a.dueAt ? Date.parse(a.dueAt) : Infinity) - (b.dueAt ? Date.parse(b.dueAt) : Infinity))
+    .slice(0, 4)
+    .map((t) => `- ${t.title} for ${spokenCourse(t.course)}${spokenDue(u, t.dueAt)}`)
+    .join('\n');
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: env.ANTHROPIC_MODEL || 'claude-haiku-5-5',
+        max_tokens: 150,
+        system:
+          'You write the first thing a voice assistant says on a morning phone call to a UC Berkeley student with ADHD. ' +
+          'Goal: help them pick ONE task and a start time. Rules: at most 3 short spoken sentences, warm and calm, no pressure, ' +
+          'no guilt, no lists, no emojis, no markdown. Name at most two tasks, the most urgent first. ' +
+          'Start with "Good morning, this is Concentr8." and end with a question asking which task they will start and when.',
+        messages: [{ role: 'user', content: `Their tasks, most urgent first:\n${top}` }],
+      }),
+      signal: AbortSignal.timeout(6000),
+    });
+    if (!res.ok) return fallback;
+    const body = await res.json();
+    const text = String(body.content?.find((c) => c.type === 'text')?.text || '').replace(/\s+/g, ' ').trim();
+    return text.length >= 20 && text.length <= 400 && text.endsWith('?') ? text : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 /** What the stuck agent says first. The calm screen already did the breathing; the call is about one tiny step. */
 function stuckOpeningLine(task) {
   const what = task ? ` on ${task}` : '';
@@ -502,7 +539,7 @@ async function placeCartesiaCall(u, to, opts = {}) {
   }
   const variables = stuck
     ? { user_id: u.id, opening_line: stuckOpeningLine(opts.task), task: opts.task || 'their task' }
-    : { user_id: u.id, opening_line: openingLine(u) };
+    : { user_id: u.id, opening_line: await claudeOpeningLine(u) };
   const res = await fetch('https://api.cartesia.ai/agents/calls', {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Cartesia-Version': env.CARTESIA_VERSION || '2026-08-14', 'Content-Type': 'application/json' },
@@ -1024,4 +1061,4 @@ if (require.main === module) {
   schedulerTick();
 }
 
-module.exports = { server, cleanAnswer, openingLine, spokenCourse, normalizePhone, schedulerTick, data };
+module.exports = { server, cleanAnswer, openingLine, claudeOpeningLine, spokenCourse, normalizePhone, schedulerTick, data };
