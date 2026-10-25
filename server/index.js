@@ -72,6 +72,7 @@ function migrate(raw) {
 const data = migrate(loadData());
 
 function save() {
+  fs.mkdirSync(path.dirname(DATA_FILE), { recursive: true }); // e.g. /home/data on Azure does not exist at first
   const tmp = DATA_FILE + '.tmp';
   fs.writeFileSync(tmp, JSON.stringify(data, null, 2));
   fs.renameSync(tmp, DATA_FILE);
