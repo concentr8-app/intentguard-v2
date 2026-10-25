@@ -119,8 +119,15 @@ export interface StuckEpisode {
 export type StuckOutcome = 'started' | 'break' | 'cancelled' | 'ended';
 
 /** Everything the UI needs, pushed from main to renderer on every change. */
+/** A newer release than the running app, with a download for this computer. */
+export interface UpdateInfo {
+  version: string;
+  url: string;
+}
+
 export interface AppState {
   appVersion: string;
+  update: UpdateInfo | null; // newer version available (checked against the public releases)
   settings: Settings;
   tasks: Task[];
   lastSync: string | null;

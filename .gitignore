@@ -5,3 +5,4 @@ release/
 .DS_Store
 server/data.json
 server/data.json.tmp
+server/build.json

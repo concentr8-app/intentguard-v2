@@ -253,7 +253,7 @@ async function claudeOpeningLine(u) {
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: env.ANTHROPIC_MODEL || 'claude-haiku-5-5',
+        model: claudeModel(),
         max_tokens: 150,
         system:
           'You write the first thing a voice assistant says on a morning phone call to a UC Berkeley student with ADHD. ' +
@@ -264,11 +264,24 @@ async function claudeOpeningLine(u) {
       }),
       signal: AbortSignal.timeout(6000),
     });
-    if (!res.ok) return fallback;
+    if (!res.ok) {
+      console.error(`[greeting] Claude answered ${res.status}; using the fixed greeting`);
+      noteClaude('greeting', false, `Claude answered ${res.status}`);
+      return fallback;
+    }
     const body = await res.json();
     const text = String(body.content?.find((c) => c.type === 'text')?.text || '').replace(/\s+/g, ' ').trim();
-    return text.length >= 20 && text.length <= 400 && text.endsWith('?') ? text : fallback;
-  } catch {
+    if (text.length >= 20 && text.length <= 400 && text.endsWith('?')) {
+      console.log('[greeting] written by Claude');
+      noteClaude('greeting', true);
+      return text;
+    }
+    console.error('[greeting] Claude answer did not fit; using the fixed greeting:', text.slice(0, 120));
+    noteClaude('greeting', false, 'answer did not fit');
+    return fallback;
+  } catch (err) {
+    console.error('[greeting] Claude request failed; using the fixed greeting:', err.name, err.message);
+    noteClaude('greeting', false, err.name);
     return fallback;
   }
 }
@@ -307,7 +320,7 @@ async function claudeUnderstand(u, speech) {
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: env.ANTHROPIC_MODEL || 'claude-haiku-5-5',
+        model: claudeModel(),
         max_tokens: 200,
         messages: [
           {
@@ -331,6 +344,46 @@ async function claudeUnderstand(u, speech) {
     // fall back to the fixed script
   }
   return null;
+}
+
+// ---------- is Claude working? ----------
+// The last outcome of every Claude feature, shown (without any secret or student data) in /api/health, so a
+// deployment can be checked from outside: is the key set, does Claude answer, and did each feature work last time.
+const claudeStatus = { selfTest: null, greeting: null, firstStep: null, summary: null };
+// The deploy workflow writes build.json with the commit, so a check after a deploy knows the new server is live.
+const BUILD = (() => {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(__dirname, 'build.json'), 'utf8')).commit || null;
+  } catch {
+    return null;
+  }
+})();
+const claudeModel = () => env.ANTHROPIC_MODEL || 'claude-haiku-5-5';
+
+function noteClaude(feature, ok, detail) {
+  claudeStatus[feature] = { ok, at: new Date().toISOString(), ...(detail ? { detail: String(detail).slice(0, 80) } : {}) };
+}
+
+/** One tiny request (a few tokens) at start-up and twice a day: proves the key and the model work. */
+async function claudeSelfTest() {
+  if (!env.ANTHROPIC_API_KEY) return null;
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model: claudeModel(), max_tokens: 5, messages: [{ role: 'user', content: 'Reply with the word OK.' }] }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (res.ok) noteClaude('selfTest', true);
+    else {
+      noteClaude('selfTest', false, `Claude answered ${res.status}`);
+      console.error(`[claude] self-test: Claude answered ${res.status} for model ${claudeModel()}`);
+    }
+  } catch (err) {
+    noteClaude('selfTest', false, err.name);
+    console.error('[claude] self-test failed:', err.name, err.message);
+  }
+  return claudeStatus.selfTest;
 }
 
 // ---------- optional: Claude suggests the first step when a student presses "I'm stuck" ----------
@@ -371,7 +424,7 @@ async function claudeFirstStep(body) {
       method: 'POST',
       headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
       body: JSON.stringify({
-        model: env.ANTHROPIC_MODEL || 'claude-haiku-5-5',
+        model: claudeModel(),
         max_tokens: 200,
         system: `${STEP_SYSTEM_PROMPT} Reply with JSON only, no other text: {"step": "<the action>", "minutes": <2 to 10>}`,
         messages: [{ role: 'user', content: lines.join('\n') }],
@@ -380,16 +433,19 @@ async function claudeFirstStep(body) {
     });
   } catch (err) {
     console.error('[first-step] Claude request failed:', err.name, err.message);
+    noteClaude('firstStep', false, err.name);
     throw httpError(502, `Claude did not answer (${err.name})`);
   }
   if (!res.ok) {
     const detail = await res.text().catch(() => '');
     console.error(`[first-step] Claude answered ${res.status}:`, detail.slice(0, 300));
+    noteClaude('firstStep', false, `Claude answered ${res.status}`);
     throw httpError(502, `Claude answered ${res.status}`);
   }
   const data = await res.json();
   if (data.stop_reason === 'refusal' || data.stop_reason === 'max_tokens') {
     console.error('[first-step] Claude stopped early:', data.stop_reason);
+    noteClaude('firstStep', false, `stopped early (${data.stop_reason})`);
     throw httpError(502, `Claude stopped early (${data.stop_reason})`);
   }
   const text = String((data.content || []).find((c) => c.type === 'text')?.text || '');
@@ -398,11 +454,16 @@ async function claudeFirstStep(body) {
     value = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
   } catch {
     console.error('[first-step] Claude did not answer with JSON:', text.slice(0, 200));
+    noteClaude('firstStep', false, 'no JSON');
     throw httpError(502, 'Claude did not answer with a step');
   }
   const step = oneLine(value.step, 1000);
-  if (!step || step.length > 240) throw httpError(502, 'Claude did not answer with a usable step');
+  if (!step || step.length > 240) {
+    noteClaude('firstStep', false, 'no usable step');
+    throw httpError(502, 'Claude did not answer with a usable step');
+  }
   const minutes = Math.min(10, Math.max(2, Math.round(Number(value.minutes) || 5)));
+  noteClaude('firstStep', true);
   return { step, minutes };
 }
 
@@ -609,7 +670,7 @@ async function impactSummary(u) {
         method: 'POST',
         headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
         body: JSON.stringify({
-          model: env.ANTHROPIC_MODEL || 'claude-haiku-5-5',
+          model: claudeModel(),
           max_tokens: 120,
           system:
             'You write a short note to a UC Berkeley student with ADHD about how their morning calls went. ' +
@@ -622,10 +683,20 @@ async function impactSummary(u) {
       if (res.ok) {
         const body = await res.json();
         const t = String(body.content?.find((c) => c.type === 'text')?.text || '').replace(/\s+/g, ' ').trim();
-        if (t.length >= 20 && t.length <= 400) text = t;
+        if (t.length >= 20 && t.length <= 400) {
+          text = t;
+          noteClaude('summary', true);
+        } else {
+          console.error('[summary] Claude answer did not fit; using the fixed sentence');
+          noteClaude('summary', false, 'answer did not fit');
+        }
+      } else {
+        console.error(`[summary] Claude answered ${res.status}; using the fixed sentence`);
+        noteClaude('summary', false, `Claude answered ${res.status}`);
       }
-    } catch {
-      // keep the fixed sentence
+    } catch (err) {
+      console.error('[summary] Claude request failed; using the fixed sentence:', err.name, err.message);
+      noteClaude('summary', false, err.name);
     }
   }
   u.impactText = { key, text };
@@ -892,6 +963,8 @@ async function route(req, res) {
       cartesiaToolSecret: !!env.CARTESIA_WEBHOOK_SECRET,
       cartesiaStuckAgent: !!env.CARTESIA_STUCK_AGENT_ID,
       features: [...(stuckCallReady() ? ['stuck-call'] : []), ...(env.ANTHROPIC_API_KEY ? ['first-step'] : [])],
+      build: BUILD,
+      claude: { key: !!env.ANTHROPIC_API_KEY, model: claudeModel(), ...claudeStatus },
       users: Object.keys(data.users).length,
       signupsOpen: signupsOpen(),
       inviteRequired: !openSignups() && !!env.REGISTER_CODE,
@@ -1185,6 +1258,8 @@ if (require.main === module) {
   });
   setInterval(schedulerTick, 30_000);
   schedulerTick();
+  void claudeSelfTest();
+  setInterval(() => void claudeSelfTest(), 12 * 60 * 60 * 1000).unref();
 }
 
-module.exports = { server, cleanAnswer, openingLine, claudeOpeningLine, spokenCourse, normalizePhone, schedulerTick, data };
+module.exports = { server, cleanAnswer, openingLine, claudeOpeningLine, claudeSelfTest, claudeStatus, spokenCourse, normalizePhone, schedulerTick, data };

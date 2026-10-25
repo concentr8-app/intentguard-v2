@@ -311,3 +311,29 @@ test('impact: a call counts as committed once the agent saves a plan, and Claude
   assert.ok(agg.calls >= 1 && agg.committed >= 1 && agg.students >= 1);
   assert.deepEqual(Object.keys(agg).sort(), ['calls', 'commitRate', 'committed', 'days', 'medianSecondsToCommit', 'students']);
 });
+
+test('health shows whether Claude works, per feature, without any secret', async () => {
+  const { claudeSelfTest, claudeStatus } = require('../index.js');
+  const saved = process.env.ANTHROPIC_API_KEY;
+  try {
+    delete process.env.ANTHROPIC_API_KEY;
+    assert.equal(await claudeSelfTest(), null, 'no key: no request');
+    let h = await (await fetch(base + '/api/health')).json();
+    assert.equal(h.claude.key, false);
+
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-secret-value';
+    claudeAnswer = () => ({ status: 200, json: { content: [{ type: 'text', text: 'OK' }] } });
+    assert.equal((await claudeSelfTest()).ok, true);
+    claudeAnswer = () => ({ status: 401, json: { error: { message: 'invalid x-api-key' } } });
+    assert.deepEqual([(await claudeSelfTest()).ok, claudeStatus.selfTest.detail], [false, 'Claude answered 401']);
+
+    h = await (await fetch(base + '/api/health')).json();
+    assert.equal(h.claude.key, true);
+    assert.ok(h.claude.model);
+    assert.equal(h.claude.selfTest.ok, false);
+    assert.ok(!JSON.stringify(h).includes('sk-ant-secret-value'), 'the key never appears');
+    assert.ok('greeting' in h.claude && 'firstStep' in h.claude && 'summary' in h.claude);
+  } finally {
+    if (saved === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = saved;
+  }
+});

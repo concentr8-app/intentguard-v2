@@ -65,6 +65,16 @@ Latest automated verification on Node.js `v26.7.0`:
 - Calls go through a Cartesia voice agent when its secrets are set (`docs/CARTESIA-SETUP.md`), otherwise Telnyx, then Twilio. The agent saves the plan through `POST /cartesia/save-plan`.
 - 17 server tests: `cd server && npm test` (the phone providers are faked). Not yet checked live: Cartesia agent setup, calls to people other than the owner (a Telnyx trial calls only verified numbers).
 
+## Releases, updates and checks (2026-10-25)
+
+- **Automatic versions:** every change to the app on `main` (`src/`, `renderer/`, `build/`, `package.json`) becomes a new release: the release workflow takes the newest public release, adds 1 to the last number, builds Mac (.dmg), Windows (.exe) and Linux (.AppImage) and publishes them to `concentr8-app/concentr8`. Server, website and docs changes do not make a new app version. A bigger jump: set `version` in `package.json` higher.
+- **Update notice in the app:** a packaged app checks the newest public release at start and every 6 hours and shows "A newer Concentr8 is out" with the download for this computer (`src/services/updates.ts`). It cannot replace itself (that needs a signed app).
+- **Website:** `server/public/index.html` is the one source; on `main` it is served by Azure and published to https://concentr8.github.io (`publish-site.yml`, secret `SITE_TOKEN`).
+- **Claude on the server:** `/api/health` shows `claude` (key set, model, a start-up self-test, and the last outcome of greeting, first step and summary; no secrets). After each server deploy the workflow waits for the new server and fails if Claude does not answer.
+- **Tests on every PR:** `ci.yml` runs the type check, app tests, server tests, website link checks and an axe-core accessibility check (WCAG 2.2 AA) of the website and the app screens in light and dark (`npm run check:a11y`).
+- **Fonts:** the app ships Atkinson Hyperlegible (text) and Bricolage Grotesque (headings), the same as the website (`renderer/fonts/`, SIL Open Font License).
+- Windows and Linux builds are early versions: no screen watching or blocking yet, untested by hand.
+
 ## Current known limitations
 
 - Semantic classification requires an optional provider key and network connection; the app remains deterministic without them.

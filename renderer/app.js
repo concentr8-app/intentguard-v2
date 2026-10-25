@@ -79,6 +79,12 @@ function onBreak(session) {
 function paint() {
   if (!state) return;
   $('app-version').textContent = `Version ${state.appVersion}`;
+  const update = state.update;
+  $('update').hidden = !update;
+  if (update) {
+    $('update-version').textContent = update.version;
+    $('update-link').href = update.url;
+  }
   const { settings } = state;
   const hasTasks = settings.canvasConnected || settings.demoMode;
   if (hasTasks) connectingCanvas = false;

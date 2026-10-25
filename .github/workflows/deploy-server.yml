@@ -16,8 +16,36 @@ jobs:
           node-version: 22
       - name: Run server tests
         run: cd server && npm test
+      - name: Stamp the commit into the server
+        run: echo "{\"commit\":\"$GITHUB_SHA\"}" > server/build.json
       - uses: azure/webapps-deploy@v3
         with:
           app-name: ${{ vars.AZURE_WEBAPP_NAME }}
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
           package: server
+      # After the deploy: the live server must answer, and if a Claude key is set, Claude must answer too.
+      - name: Check the live server and Claude
+        shell: bash
+        env:
+          HEALTH_URL: ${{ vars.SERVER_HEALTH_URL || 'https://concentr8-calls-dqakcah0a0f7edhn.swedencentral-01.azurewebsites.net/api/health' }}
+        run: |
+          for i in $(seq 1 30); do
+            body="$(curl -fsS --max-time 15 "$HEALTH_URL" || true)"
+            if [[ -n "$body" ]] && node -e '
+              const h = JSON.parse(process.argv[1]);
+              if (!h.ok || h.build !== process.env.GITHUB_SHA) process.exit(1); // still the old server
+              if (h.claude && h.claude.key && !h.claude.selfTest) process.exit(1); // self-test still running
+            ' "$body"; then break; fi
+            echo "waiting for the new server ($i)"; sleep 10
+          done
+          echo "$body" | node -e '
+            let s = ""; process.stdin.on("data", (d) => (s += d)).on("end", () => {
+              const h = JSON.parse(s || "{}");
+              const c = h.claude || {};
+              const show = (name, v) => console.log(`${name}: ${v ? (v.ok ? "working" : "NOT working (" + (v.detail || "?") + ")") : "not used yet"}`);
+              console.log(`server ok: ${!!h.ok}, calls via ${h.provider}, Claude key: ${!!c.key}, model: ${c.model}`);
+              ["selfTest", "greeting", "firstStep", "summary"].forEach((k) => show(k, c[k]));
+              if (!h.ok) { console.log("::error::The live server did not answer"); process.exit(1); }
+              if (h.build !== process.env.GITHUB_SHA) { console.log("::error::The live server still runs an older version (" + h.build + ")"); process.exit(1); }
+              if (c.key && !(c.selfTest && c.selfTest.ok)) { console.log("::error::Claude does not answer on the live server: check ANTHROPIC_API_KEY and ANTHROPIC_MODEL in Azure"); process.exit(1); }
+            });'
