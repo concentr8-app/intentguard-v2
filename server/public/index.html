@@ -170,8 +170,8 @@ footer{padding:0 0 48px;color:var(--mute);font-size:.9rem}
     <div class="hero">
       <div>
         <h1>The hard part is starting. We call you for that.</h1>
-        <p class="lede">Every morning Concentr8 phones you, asks which task you will start and when, and then keeps distractions off your Mac until you have begun. Made for Berkeley students with ADHD.</p>
-        <p class="onphone">Concentr8 runs on your laptop, and the call comes to this phone. Open this page on your laptop to download it.<br><button type="button" id="copy">Copy the link</button> <a id="mail" href="mailto:?subject=Concentr8&amp;body=https%3A%2F%2Fconcentr8.github.io">Email it to me</a></p>
+        <p class="lede">A short morning call asks which task you will start and when. Then your Mac keeps distractions away. For Berkeley students with ADHD.</p>
+        <p class="onphone">Concentr8 runs on your laptop. Open this page there.<br><button type="button" id="copy">Copy the link</button> <a id="mail" href="mailto:?subject=Concentr8&amp;body=https%3A%2F%2Fconcentr8.github.io">Email it to me</a></p>
         <a class="btn" id="dl" data-dl href="{{DOWNLOAD_BASE}}/Concentr8-arm64.dmg">Download for Mac</a>
         <p class="ver" id="ver" aria-live="polite"></p>
         <div class="others" aria-label="Other downloads">
@@ -180,9 +180,9 @@ footer{padding:0 0 48px;color:var(--mute);font-size:.9rem}
           <a data-file="Concentr8-x64.exe" href="{{DOWNLOAD_BASE}}/Concentr8-x64.exe">Windows</a>
           <a data-file="Concentr8-x64.AppImage" href="{{DOWNLOAD_BASE}}/Concentr8-x64.AppImage">Linux</a>
         </div>
-        <p class="note"><strong>Windows and Linux are early versions.</strong> You get the morning call, your tasks and the stuck screen. Blocking distractions works on Mac only for now. Full Windows and Linux versions are coming later.</p>
-        <p class="later">Windows and Linux have early versions without blocking distractions. Full versions are coming later.</p>
-        <p class="small">On a Mac, Apple Silicon (M1 or newer) is the usual choice. Not sure? Apple menu, then About This Mac. The call works for US phone numbers.</p>
+        <p class="note"><strong>Windows and Linux are early versions</strong> without distraction blocking. Full versions are coming.</p>
+        <p class="later">Windows and Linux: early versions, full versions coming.</p>
+        <p class="small">Not sure which Mac? Apple menu, About This Mac. US phone numbers only.</p>
       </div>
 
       <div class="phone" role="img" aria-label="Example of the morning call. Concentr8 asks which task you will start. You answer: the CS 188 project, at nine thirty. Concentr8 confirms.">
@@ -200,60 +200,38 @@ footer{padding:0 0 48px;color:var(--mute);font-size:.9rem}
       <ol class="setup">
         <li>
           <h3>Install it</h3>
-          <p>Open the download and drag Concentr8 into Applications. If macOS says the app is damaged, it is not. Run this once in Terminal:</p>
+          <p>Drag it into Applications. If macOS says it is damaged, run:</p>
           <div class="cmd"><code>xattr -cr /Applications/Concentr8.app</code><button type="button" data-copy>Copy</button></div>
         </li>
         <li>
           <h3>Add your courses</h3>
-          <p>In the app, choose Add your courses and paste a bCourses access token. No token button? The Calendar Feed link from bCourses works too. You can skip this and type any task.</p>
+          <p>Paste your bCourses token, or skip it and type any task.</p>
         </li>
         <li>
           <h3>Turn on the call</h3>
-          <p>Open Settings, then Morning call. Enter your US number, pick a time, tick the box and choose Start my morning calls.</p>
-          <p>Want to hear it now? Choose Call me now.</p>
+          <p>Settings, Morning call: your number and a time.</p>
         </li>
       </ol>
     </section>
 
     <section id="day">
-      <h2>One short call. Then the Mac helps you keep your word.</h2>
-      <p class="intro">You decide the task and the time out loud. That is the part that is usually missing at 9 a.m.</p>
+      <h2>One call. Then your Mac helps you follow through.</h2>
       <ul class="day" style="padding:0">
-        <li>
-          <time>8:00</time>
-          <div><h3>The call</h3><p>It reads your upcoming bCourses deadlines and asks one question: which task, and when? You answer in a sentence. The call takes under a minute.</p></div>
-        </li>
-        <li>
-          <time>9:30</time>
-          <div><h3>You start</h3><p>The app knows your task and your start time, and your session begins. You can also start any task by typing it in, even one that is not in bCourses.</p></div>
-        </li>
-        <li class="warn">
-          <time>9:41</time>
-          <div><h3>You drift to YouTube</h3><p>The app compares what you are doing with the task you chose, so course pages and the work itself count as focus. Known distractions get a visible warning and a short grace period. If you stay, the app moves you back to your work instead of just scolding you.</p></div>
-        </li>
-        <li>
-          <time>10:15</time>
-          <div><h3>You are stuck</h3><p>Press I'm stuck. A calm screen guides one minute of box breathing, then you get one tiny first step for the next five minutes. Still stuck? A smaller step, or a short call to talk it through. After five distractions in ten minutes the calm screen starts by itself, and Esc ends it.</p></div>
-        </li>
-        <li>
-          <time>11:00</time>
-          <div><h3>You take a break on purpose</h3><p>Breaks are allowed. Pause the nudges, end the break when you are ready, and monitoring picks up again.</p></div>
-        </li>
-        <li>
-          <time>Later</time>
-          <div><h3>You see what happened</h3><p>Each session keeps a plain log of the nudges and returns, so you can look back without guessing.</p></div>
-        </li>
+        <li><time>8:00</time><div><h3>The call</h3><p>Which task, and when? One sentence.</p></div></li>
+        <li><time>9:30</time><div><h3>You start</h3><p>Your session begins at the time you said.</p></div></li>
+        <li class="warn"><time>9:41</time><div><h3>You drift</h3><p>A gentle warning, then back to your work.</p></div></li>
+        <li><time>10:15</time><div><h3>You are stuck</h3><p>One minute of breathing, then one tiny step.</p></div></li>
+        <li><time>11:00</time><div><h3>A break</h3><p>Take it on purpose. No nudges.</p></div></li>
       </ul>
     </section>
 
     <section id="claude">
-      <h2>Claude does the thinking. You do the starting.</h2>
-      <p class="intro">Concentr8 uses Claude, Anthropic's AI, at the few moments where a person would help most. Each one has a plain fallback, so nothing breaks without it.</p>
+      <h2>Claude does the thinking.</h2>
       <div class="feat">
-        <div><h3>The conversation</h3><p>The morning call and the stuck call are conversations with Claude. Cartesia gives it the phone line and the voice.</p></div>
-        <div><h3>Your real deadlines</h3><p>Before each call, Claude writes the first sentence from your bCourses deadlines, so the call starts with what is actually due.</p></div>
-        <div><h3>One tiny first step</h3><p>When you press I'm stuck, Claude turns your task into one step small enough to start in the next five minutes.</p></div>
-        <div><h3>What Claude sees</h3><p>Your task titles, course names and due dates, and what you say on the call. Never your screen, your files or your browsing.</p></div>
+        <div><h3>Runs the call</h3><p>Cartesia gives it the phone line and the voice.</p></div>
+        <div><h3>Knows your deadlines</h3><p>The call opens with what is actually due.</p></div>
+        <div><h3>Finds a first step</h3><p>Small enough to start in five minutes.</p></div>
+        <div><h3>Sees only your tasks</h3><p>And what you say on the call. Never your screen.</p></div>
       </div>
     </section>
 
@@ -261,44 +239,34 @@ footer{padding:0 0 48px;color:var(--mute);font-size:.9rem}
       <h2>Questions</h2>
       <div class="faq">
         <details>
-          <summary>macOS says the app is damaged. What do I do?</summary>
-          <p>The app is not signed by Apple yet, so macOS blocks it after the download. It is not damaged. Open Terminal (press cmd and space, type Terminal) and run this once:</p>
+          <summary>macOS says the app is damaged.</summary>
+          <p>It is not, it is just not signed by Apple yet. Run this once in Terminal:</p>
           <div class="cmd"><code>xattr -cr /Applications/Concentr8.app</code><button type="button" data-copy>Copy</button></div>
-          <p>Then open Concentr8 from Applications as usual. If macOS only asks whether you want to open it, choose Open.</p>
         </details>
         <details>
-          <summary>Windows says it protected my PC. What do I do?</summary>
-          <p>The app is not signed yet, so Windows warns before the first start. Click More info, then Run anyway. Remember that Windows is an early version: calls, tasks and the stuck screen work, blocking distractions does not yet.</p>
+          <summary>Windows says it protected my PC.</summary>
+          <p>Click More info, then Run anyway.</p>
         </details>
         <details>
           <summary>How do I start the Linux version?</summary>
-          <p>Make the file runnable once, then double-click it:</p>
+          <p>Make it runnable, then double-click it. Newer Ubuntu may need libfuse2.</p>
           <div class="cmd"><code>chmod +x Concentr8-x64.AppImage</code><button type="button" data-copy>Copy</button></div>
-          <p>On newer Ubuntu versions you may need the package libfuse2 first. Linux is an early version too, without blocking distractions.</p>
         </details>
         <details>
-          <summary>Do I always get the newest version?</summary>
-          <p>Yes. The download buttons always give you the newest release, and every change to the app becomes a new version. The app shows a notice with a download link when a newer version is out. It cannot replace itself yet, so download it and replace the old app.</p>
+          <summary>Do I get the newest version?</summary>
+          <p>Yes. The app tells you when a new one is out.</p>
         </details>
         <details>
-          <summary>What does the app need permission for?</summary>
-          <p>Concentr8 asks macOS for Automation and Accessibility access so it can see which app and page you are on and move you back to your work. It asks when it needs them, and you can change this in System Settings.</p>
+          <summary>What do you store?</summary>
+          <p>Your phone number, call time and assignment titles with due dates. Your bCourses token stays on your computer. Deleting your account removes everything.</p>
         </details>
         <details>
-          <summary>What do you store about me?</summary>
-          <p>Your bCourses token stays on your Mac. The call server keeps your phone number, your call time and the titles and due dates of your assignments, so the call can name them. Delete your account in the app and this data is removed.</p>
+          <summary>Why does it need permissions on the Mac?</summary>
+          <p>To see which app you are in and bring you back to your work. You can turn it off in System Settings.</p>
         </details>
         <details>
-          <summary>Which phone numbers work?</summary>
-          <p>US numbers only for now. Enter yours with the country code, like +1 415 555 1234.</p>
-        </details>
-        <details>
-          <summary>What if I do not want the call anymore?</summary>
-          <p>Say "stop calling me" during the call, or turn it off or delete your account in the app.</p>
-        </details>
-        <details>
-          <summary>Which computers does it run on?</summary>
-          <p>Macs with Apple Silicon (M1 or newer) and Intel Macs, with everything. Windows and Linux have early versions with the morning call, tasks and the stuck screen, but without blocking distractions; the full versions come later. There is no iPhone or Android app yet.</p>
+          <summary>How do I stop the calls?</summary>
+          <p>Say "stop calling me", or turn the call off in the app.</p>
         </details>
       </div>
     </section>
@@ -309,7 +277,7 @@ footer{padding:0 0 48px;color:var(--mute);font-size:.9rem}
     </div>
   </main>
 
-  <footer>Built by and for UC Berkeley students at Cal Hacks 13.0. Not affiliated with UC Berkeley. Concentr8 is not a medical product. Bear from <a href="https://github.com/googlefonts/noto-emoji">Noto Emoji</a> (Apache 2.0). <a id="all" href="{{DOWNLOAD_BASE}}/../..">All versions</a>.</footer>
+  <footer>Built by and for UC Berkeley students at Cal Hacks 13.0. Not affiliated with UC Berkeley. Not a medical product. Bear from <a href="https://github.com/googlefonts/noto-emoji">Noto Emoji</a> (Apache 2.0). <a id="all" href="{{DOWNLOAD_BASE}}/../..">All versions</a>.</footer>
 </div>
 <script>
 // Shapes the page for the visitor's computer: the big button downloads the right file, phones get a hint,
