@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Concentr8: start the first task</title>
-<meta name="description" content="Concentr8 calls you every morning, asks which task you will start and when, then keeps distractions away on your Mac. Made for Berkeley students with ADHD, by Berkeley students. Also on Windows and Linux (early versions).">
+<meta name="description" content="Concentr8 calls you at the time you pick, asks which task you will start and when, then keeps distractions away on your Mac. Made for Berkeley students with ADHD, by Berkeley students. Also on Windows and Linux (early versions).">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22%3E%3Ccircle cx=%2264%22 cy=%2264%22 r=%2264%22 fill=%22%23CFE8C4%22/%3E%3Cg transform=%22translate%2818.1 20.3%29 scale%280.717%29%22%3E%3Cpath fill=%22%23855B52%22 d=%22M63.29,9.93c14.92,0.22,16.4,3.61,20.77,3.73c6.32,0.18,15.98-11.97,29.07-0.99 c12.9,10.82,2.39,27.8,2.39,27.8s7.18,12.72,8.02,32.1c0.61,14.03-4.79,31.49-29,41.39c-22.29,9.12-55.55,7.3-75.88-8.31 C2.9,93.56,4.01,75.92,4.44,69.91c1.13-15.77,8.02-28.44,8.02-28.44s-10.19-20.15,2.25-29.7c13.66-10.49,23.38,1.86,29,1.41 C47.8,12.84,49.14,9.72,63.29,9.93z%22/%3E%3Cpath fill=%22%23B99277%22 d=%22M35.98,20.77c-0.19-1.11-7.43-8.29-14.92-0.99c-5.77,5.63,0,15.42,0.99,14.64 c0.76-0.6,3.56-4.21,6.83-7.32C32.23,23.91,36.05,21.2,35.98,20.77z%22/%3E%3Cpath fill=%22%23B99277%22 d=%22M92.5,20.84c-0.05,0.62,3.81,2.95,7.32,6.26c3.55,3.35,6.75,7.67,7.32,7.6 c1.13-0.14,5.98-9.64-0.35-14.99S92.64,19.01,92.5,20.84z%22/%3E%3Cpath fill=%22%23F2A258%22 d=%22M64.51,60.38c14.64,0,23.42,16.52,22.9,26.84c-0.47,9.39-5.82,17.18-23.84,17.08 c-18.02-0.09-22.59-8.36-22.9-17.18C40.39,79.24,46.02,60.38,64.51,60.38z%22/%3E%3Cpath fill=%22%23171716%22 d=%22M92.92,59.7c0.33,4.16-1.9,7.95-6.17,7.63c-4.12-0.32-7.13-3.66-7.13-7.84s2.22-7.14,5.56-7.6 C89.26,51.32,92.45,53.79,92.92,59.7z%22/%3E%3Cpath fill=%22%232F3030%22 d=%22M74.55,76.99c-0.34,4.16-3.1,8.61-11.12,8.33c-6.73-0.24-9.9-4.72-10-8.89 c-0.14-5.89,3-8.06,10.61-8.17C72.72,68.15,75.02,71.27,74.55,76.99z%22/%3E%3Cpath fill=%22%23171716%22 d=%22M48.37,61.25c-0.43,4.15-4.33,7.06-7.98,6.17c-4.01-0.98-5.81-5.2-4.97-9.29 c0.75-3.66,3.96-6.51,7.6-6.1C46.82,52.45,48.91,56.02,48.37,61.25z%22/%3E%3Cpath fill=%22%232F3030%22 d=%22M63.99,95.04c5.49,0,8.49-3.03,9.34-3.87s1.99-2.28,3.75-0.84c1.5,1.22,0.02,3.12-0.66,3.85 c-1.22,1.31-4.9,5.31-12.93,4.95c-7.88-0.35-10.91-3.92-11.76-4.76c-0.84-0.84-2.25-3-0.66-4.22c1.91-1.46,2.53,0.19,4.5,1.78 S58.78,95.04,63.99,95.04z%22/%3E%3C/g%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -188,7 +188,7 @@ footer{padding:0 0 48px;color:var(--mute);font-size:.9rem}
     <div class="hero">
       <div>
         <h1>The hard part is starting. We call you for that.</h1>
-        <p class="lede">A short morning call asks which task you will start and when. Then your Mac keeps distractions away. For Berkeley students with ADHD.</p>
+        <p class="lede">A short call at the time you pick asks which task you will start and when. Then your Mac keeps distractions away. For Berkeley students with ADHD.</p>
         <p class="onphone">Concentr8 runs on your laptop. Open this page there.<br><button type="button" id="copy">Copy the link</button> <a id="mail" href="mailto:?subject=Concentr8&amp;body=https%3A%2F%2Fconcentr8.github.io">Email it to me</a></p>
         <a class="btn" id="dl" data-dl href="{{DOWNLOAD_BASE}}/Concentr8-arm64.dmg">Download for Mac</a>
         <p class="ver" id="ver" aria-live="polite"></p>
@@ -203,9 +203,9 @@ footer{padding:0 0 48px;color:var(--mute);font-size:.9rem}
         <p class="small">Not sure which Mac? Apple menu, About This Mac. US phone numbers only.</p>
       </div>
 
-      <div class="phone" role="img" aria-label="Example of the morning call. Concentr8 asks which task you will start. You answer: the CS 188 project, at nine thirty. Concentr8 confirms.">
-        <div class="who"><div class="dot"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" aria-hidden="true" focusable="false"><circle cx="64" cy="64" r="64" fill="#CFE8C4"/><g transform="translate(18.1 20.3) scale(0.717)"><path fill="#855B52" d="M63.29,9.93c14.92,0.22,16.4,3.61,20.77,3.73c6.32,0.18,15.98-11.97,29.07-0.99 c12.9,10.82,2.39,27.8,2.39,27.8s7.18,12.72,8.02,32.1c0.61,14.03-4.79,31.49-29,41.39c-22.29,9.12-55.55,7.3-75.88-8.31 C2.9,93.56,4.01,75.92,4.44,69.91c1.13-15.77,8.02-28.44,8.02-28.44s-10.19-20.15,2.25-29.7c13.66-10.49,23.38,1.86,29,1.41 C47.8,12.84,49.14,9.72,63.29,9.93z"/><path fill="#B99277" d="M35.98,20.77c-0.19-1.11-7.43-8.29-14.92-0.99c-5.77,5.63,0,15.42,0.99,14.64 c0.76-0.6,3.56-4.21,6.83-7.32C32.23,23.91,36.05,21.2,35.98,20.77z"/><path fill="#B99277" d="M92.5,20.84c-0.05,0.62,3.81,2.95,7.32,6.26c3.55,3.35,6.75,7.67,7.32,7.6 c1.13-0.14,5.98-9.64-0.35-14.99S92.64,19.01,92.5,20.84z"/><path fill="#F2A258" d="M64.51,60.38c14.64,0,23.42,16.52,22.9,26.84c-0.47,9.39-5.82,17.18-23.84,17.08 c-18.02-0.09-22.59-8.36-22.9-17.18C40.39,79.24,46.02,60.38,64.51,60.38z"/><path fill="#171716" d="M92.92,59.7c0.33,4.16-1.9,7.95-6.17,7.63c-4.12-0.32-7.13-3.66-7.13-7.84s2.22-7.14,5.56-7.6 C89.26,51.32,92.45,53.79,92.92,59.7z"/><path fill="#2F3030" d="M74.55,76.99c-0.34,4.16-3.1,8.61-11.12,8.33c-6.73-0.24-9.9-4.72-10-8.89 c-0.14-5.89,3-8.06,10.61-8.17C72.72,68.15,75.02,71.27,74.55,76.99z"/><path fill="#171716" d="M48.37,61.25c-0.43,4.15-4.33,7.06-7.98,6.17c-4.01-0.98-5.81-5.2-4.97-9.29 c0.75-3.66,3.96-6.51,7.6-6.1C46.82,52.45,48.91,56.02,48.37,61.25z"/><path fill="#2F3030" d="M63.99,95.04c5.49,0,8.49-3.03,9.34-3.87s1.99-2.28,3.75-0.84c1.5,1.22,0.02,3.12-0.66,3.85 c-1.22,1.31-4.9,5.31-12.93,4.95c-7.88-0.35-10.91-3.92-11.76-4.76c-0.84-0.84-2.25-3-0.66-4.22c1.91-1.46,2.53,0.19,4.5,1.78 S58.78,95.04,63.99,95.04z"/></g></svg></div><div><b>Concentr8</b><span>Example call, 8:00 a.m.</span></div></div>
-        <div class="line a">Good morning. Two things are due soon: Project 2 for CompSci 188, and the reading quiz. Which one will you start with?</div>
+      <div class="phone" role="img" aria-label="Example of the planning call at 6 p.m. Concentr8 asks which task you will start. You answer: the CS 188 project, at nine thirty. Concentr8 confirms.">
+        <div class="who"><div class="dot"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" aria-hidden="true" focusable="false"><circle cx="64" cy="64" r="64" fill="#CFE8C4"/><g transform="translate(18.1 20.3) scale(0.717)"><path fill="#855B52" d="M63.29,9.93c14.92,0.22,16.4,3.61,20.77,3.73c6.32,0.18,15.98-11.97,29.07-0.99 c12.9,10.82,2.39,27.8,2.39,27.8s7.18,12.72,8.02,32.1c0.61,14.03-4.79,31.49-29,41.39c-22.29,9.12-55.55,7.3-75.88-8.31 C2.9,93.56,4.01,75.92,4.44,69.91c1.13-15.77,8.02-28.44,8.02-28.44s-10.19-20.15,2.25-29.7c13.66-10.49,23.38,1.86,29,1.41 C47.8,12.84,49.14,9.72,63.29,9.93z"/><path fill="#B99277" d="M35.98,20.77c-0.19-1.11-7.43-8.29-14.92-0.99c-5.77,5.63,0,15.42,0.99,14.64 c0.76-0.6,3.56-4.21,6.83-7.32C32.23,23.91,36.05,21.2,35.98,20.77z"/><path fill="#B99277" d="M92.5,20.84c-0.05,0.62,3.81,2.95,7.32,6.26c3.55,3.35,6.75,7.67,7.32,7.6 c1.13-0.14,5.98-9.64-0.35-14.99S92.64,19.01,92.5,20.84z"/><path fill="#F2A258" d="M64.51,60.38c14.64,0,23.42,16.52,22.9,26.84c-0.47,9.39-5.82,17.18-23.84,17.08 c-18.02-0.09-22.59-8.36-22.9-17.18C40.39,79.24,46.02,60.38,64.51,60.38z"/><path fill="#171716" d="M92.92,59.7c0.33,4.16-1.9,7.95-6.17,7.63c-4.12-0.32-7.13-3.66-7.13-7.84s2.22-7.14,5.56-7.6 C89.26,51.32,92.45,53.79,92.92,59.7z"/><path fill="#2F3030" d="M74.55,76.99c-0.34,4.16-3.1,8.61-11.12,8.33c-6.73-0.24-9.9-4.72-10-8.89 c-0.14-5.89,3-8.06,10.61-8.17C72.72,68.15,75.02,71.27,74.55,76.99z"/><path fill="#171716" d="M48.37,61.25c-0.43,4.15-4.33,7.06-7.98,6.17c-4.01-0.98-5.81-5.2-4.97-9.29 c0.75-3.66,3.96-6.51,7.6-6.1C46.82,52.45,48.91,56.02,48.37,61.25z"/><path fill="#2F3030" d="M63.99,95.04c5.49,0,8.49-3.03,9.34-3.87s1.99-2.28,3.75-0.84c1.5,1.22,0.02,3.12-0.66,3.85 c-1.22,1.31-4.9,5.31-12.93,4.95c-7.88-0.35-10.91-3.92-11.76-4.76c-0.84-0.84-2.25-3-0.66-4.22c1.91-1.46,2.53,0.19,4.5,1.78 S58.78,95.04,63.99,95.04z"/></g></svg></div><div><b>Concentr8</b><span>Example call, 6:00 p.m.</span></div></div>
+        <div class="line a">Good evening. Two things are due soon: Project 2 for CompSci 188, and the reading quiz. Which one will you start with?</div>
         <div class="line b">The project.</div>
         <div class="line a">When will you start?</div>
         <div class="line b">Nine thirty.</div>
@@ -227,7 +227,7 @@ footer{padding:0 0 48px;color:var(--mute);font-size:.9rem}
         </li>
         <li>
           <h3>Turn on the call</h3>
-          <p>Settings, Morning call: your number and a time.</p>
+          <p>In Settings: your number and the time you want the call.</p>
         </li>
       </ol>
     </section>
@@ -235,7 +235,7 @@ footer{padding:0 0 48px;color:var(--mute);font-size:.9rem}
     <section id="day">
       <h2>One call. Then your Mac helps you follow through.</h2>
       <ul class="day" style="padding:0">
-        <li><time>8:00</time><div><h3>The call</h3><p>Which task, and when? One sentence.</p></div></li>
+        <li><time>6:00</time><div><h3>The call</h3><p>At the time you picked: which task, and when? One sentence.</p></div></li>
         <li><time>9:30</time><div><h3>You start</h3><p>Your session begins at the time you said.</p></div></li>
         <li class="warn"><time>9:41</time><div><h3>You drift</h3><p>A gentle warning, then back to your work.</p></div></li>
         <li><time>10:15</time><div><h3>You are stuck</h3><p>One minute of breathing, then one tiny step.</p></div></li>
@@ -263,7 +263,7 @@ footer{padding:0 0 48px;color:var(--mute);font-size:.9rem}
           <li>
             <span class="big">94 studies</span>
             <p class="find">Deciding exactly when you will start, called an if-then plan, clearly helps people follow through.</p>
-            <p class="so">So the morning call asks: which task, and when?</p>
+            <p class="so">So the call asks: which task, and when?</p>
             <a class="src" href="https://kops.uni-konstanz.de/entities/publication/2e749bfb-8533-437c-8203-7e788c910c5f">Gollwitzer &amp; Sheeran, 2006 · meta-analysis</a>
           </li>
           <li>
