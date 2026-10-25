@@ -257,3 +257,22 @@ test('status lines go away once they no longer apply', async (t) => {
   assert.equal(controller.getState().notice, null, 'and it expires on its own');
   controller.stopTimers();
 });
+
+test('after Call me now the plan from the phone shows up within seconds', async (t) => {
+  let remote = { date: '2026-10-24', focusTask: null as string | null, startTime: null as string | null, lastCallAt: null, lastCallStatus: null };
+  let polls = 0;
+  serveToday(t, () => (polls++, remote));
+  const { controller, setClock } = setup(true);
+  const tick = () => (controller as unknown as { focusTick(): Promise<void> }).focusTick();
+  await controller.callNow();
+  remote = { ...remote, focusTask: 'Project 2', startTime: '9:45 p.m.' };
+  setClock('2026-10-24T15:00:06Z');
+  await tick();
+  assert.equal(controller.getState().today.focusTask, 'Project 2', 'shown at the next 3-second tick, not after a minute');
+  assert.equal(controller.getState().today.source, 'call');
+  const after = polls;
+  setClock('2026-10-24T15:00:20Z');
+  await tick();
+  assert.equal(polls, after, 'stops asking once the plan is there');
+  controller.stopTimers();
+});

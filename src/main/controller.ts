@@ -61,6 +61,9 @@ const UPDATE_CHECK_MS = 6 * 60 * 60_000;
 export const CALM_MS = 64_000;
 export const CALL_TIMEOUT_MS = 4 * 60_000;
 const CALL_POLL_MS = 5_000;
+/** After "Call me now" the plan from the phone shows up within seconds, not at the next minute poll. */
+const PLAN_POLL_MS = 5_000;
+const PLAN_WAIT_MS = 5 * 60_000;
 /** This many separate drifts within the window and Concentr8 offers "I'm stuck". */
 export const STUCK_OFFER_DRIFTS = 3;
 /** This many separate drifts within the same window starts the calm screen. */
@@ -89,6 +92,9 @@ export class Controller {
   /** The step being prepared. Replacing or clearing it makes any older request's result stale. */
   private pendingStep: Promise<FirstStep> | null = null;
   private lastCallPollAt = 0;
+  private waitingForPlanUntil = 0;
+  private lastPlanPollAt = 0;
+  private planPolling = false;
   private callPolling = false;
   private callPending = false; // the call request is still going out; don't poll yet
   /** firstStepAt the server held before this call: only a different, newer one counts. undefined = unknown. */
@@ -147,6 +153,20 @@ export class Controller {
     if (summary) this.store.addHistory(this.closeStuckForSummary(summary));
     await this.stuckTick();
     this.maybeOfferStuck();
+    await this.planTick();
+  }
+
+  /** While a planning call is going on, look for its plan every few seconds. */
+  private async planTick() {
+    const now = this.now();
+    if (now >= this.waitingForPlanUntil || this.planPolling || now - this.lastPlanPollAt < PLAN_POLL_MS) return;
+    this.lastPlanPollAt = now;
+    this.planPolling = true;
+    try {
+      if (await this.pollServer()) this.waitingForPlanUntil = 0;
+    } finally {
+      this.planPolling = false;
+    }
   }
 
   // ---------- state ----------
@@ -379,6 +399,7 @@ export class Controller {
     try {
       await this.pushTasksToServer(this.store.tasks);
       await server.callNow();
+      this.waitingForPlanUntil = this.now() + PLAN_WAIT_MS;
       this.say('Calling your phone now…', CALLING_NOTICE_MS);
       return { ok: true };
     } catch (err) {
@@ -386,10 +407,10 @@ export class Controller {
     }
   }
 
-  /** Pulls what the student said on the phone. */
-  async pollServer(): Promise<void> {
+  /** Pulls what the student said on the phone. True when a new plan arrived. */
+  async pollServer(): Promise<boolean> {
     const server = this.server();
-    if (!server) return;
+    if (!server) return false;
     try {
       const remote = await server.today();
       const local = this.today;
@@ -416,9 +437,11 @@ export class Controller {
       if (!this.settings.serverConnected) this.store.updateSettings({ serverConnected: true });
       this.emit();
       if (changed) this.clockTick();
+      return changed && remote.date === local.date;
     } catch (err) {
       this.syncError = (err as Error).message;
       this.emit();
+      return false;
     }
   }
 
