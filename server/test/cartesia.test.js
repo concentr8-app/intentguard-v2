@@ -270,3 +270,44 @@ test('claudeOpeningLine: uses Claude when it answers well, falls back to the fix
     if (saved === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = saved;
   }
 });
+
+test('impact: a call counts as committed once the agent saves a plan, and Claude summarizes only those numbers', async () => {
+  const s = await signup('4155553333');
+  await post('/api/tasks', { tasks: [{ id: '1', title: 'Project 2', course: 'COMPSCI 188', dueAt: null, url: null }] }, s.token);
+  const me = () => fetch(base + '/api/me/impact', { headers: { Authorization: `Bearer ${s.token}` } }).then((r) => r.json());
+  assert.equal((await me()).calls, 0);
+  assert.equal((await me()).summary, '', 'no calls yet: no summary');
+
+  await post('/api/call-now', {}, s.token);
+  let i = await me();
+  assert.deepEqual([i.calls, i.committed, i.commitRate], [1, 0, 0]);
+
+  const save = (body) => fetch(base + '/cartesia/save-plan', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer tool-secret' }, body: JSON.stringify({ user_id: s.userId, ...body }) });
+  assert.equal((await save({ task: 'Project 2', start_time: '9:30 a.m.' })).status, 200);
+  i = await me();
+  assert.deepEqual([i.calls, i.committed, i.commitRate], [1, 1, 100]);
+  assert.ok(i.medianSecondsToCommit >= 0);
+
+  // Without a key the summary is the fixed sentence; with a key it is Claude's text, built only from the stats.
+  assert.match(i.summary, /called you 1 time and you picked something to start on 1 of them/);
+  const saved = process.env.ANTHROPIC_API_KEY;
+  try {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    const user = data.users[s.userId];
+    delete user.impactText;
+    claudeCalls.length = 0;
+    claudeAnswer = () => ({ status: 200, json: { content: [{ type: 'text', text: 'You started on your first call, and that is the hardest part.' }] } });
+    assert.match((await me()).summary, /hardest part/);
+    assert.deepEqual(JSON.parse(claudeCalls[0].body.messages[0].content).committed, 1);
+    assert.equal(claudeCalls.length, 1);
+    await me();
+    assert.equal(claudeCalls.length, 1, 'cached for the rest of the day');
+  } finally {
+    if (saved === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = saved;
+  }
+
+  // Public aggregate: numbers only.
+  const agg = await (await fetch(base + '/api/impact')).json();
+  assert.ok(agg.calls >= 1 && agg.committed >= 1 && agg.students >= 1);
+  assert.deepEqual(Object.keys(agg).sort(), ['calls', 'commitRate', 'committed', 'days', 'medianSecondsToCommit', 'students']);
+});

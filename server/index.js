@@ -534,8 +534,103 @@ async function placeCall(req, u, opts = {}) {
   g.calls += 1;
   u.lastCallAt = new Date().toISOString();
   u.lastCallStatus = 'queued';
+  logCall(u, opts.reason === 'stuck' ? 'stuck' : 'morning');
   save();
   return callId;
+}
+
+// ---------- impact: did the call help the student commit to something? ----------
+// Each placed call is logged; the plan/step tools mark it "committed". This is the number we report as impact
+// (committed calls / placed calls), and what Claude turns into a short, kind summary for the student.
+const CALL_LOG_MAX = 60;
+const COMMIT_WINDOW_MS = 30 * 60 * 1000;
+const IMPACT_DAYS = 14;
+
+function logCall(u, kind) {
+  if (!Array.isArray(u.callLog)) u.callLog = [];
+  u.callLog.push({ at: new Date().toISOString(), kind, outcome: 'placed' });
+  if (u.callLog.length > CALL_LOG_MAX) u.callLog.splice(0, u.callLog.length - CALL_LOG_MAX);
+}
+
+/** The newest still-open call of this kind (within 30 minutes) becomes "committed". */
+function markCommitted(u, kind) {
+  const cutoff = Date.now() - COMMIT_WINDOW_MS;
+  const log = Array.isArray(u.callLog) ? u.callLog : [];
+  for (let i = log.length - 1; i >= 0; i -= 1) {
+    const e = log[i];
+    if (e.kind === kind && e.outcome === 'placed' && Date.parse(e.at) >= cutoff) {
+      e.outcome = 'committed';
+      e.committedAt = new Date().toISOString();
+      return true;
+    }
+  }
+  return false;
+}
+
+function impactOf(users, days = IMPACT_DAYS) {
+  const since = Date.now() - days * 864e5;
+  let calls = 0;
+  let committed = 0;
+  const seconds = [];
+  for (const u of users) {
+    for (const e of Array.isArray(u.callLog) ? u.callLog : []) {
+      if (Date.parse(e.at) < since) continue;
+      calls += 1;
+      if (e.outcome === 'committed') {
+        committed += 1;
+        seconds.push(Math.max(0, Math.round((Date.parse(e.committedAt) - Date.parse(e.at)) / 1000)));
+      }
+    }
+  }
+  seconds.sort((a, b) => a - b);
+  return {
+    days,
+    calls,
+    committed,
+    commitRate: calls ? Math.round((committed / calls) * 100) : null,
+    medianSecondsToCommit: seconds.length ? seconds[Math.floor(seconds.length / 2)] : null,
+  };
+}
+
+/** Claude writes two kind sentences from the student's own numbers; a fixed sentence is the fallback. */
+async function impactSummary(u) {
+  const stats = impactOf([u]);
+  if (stats.calls === 0) return '';
+  const fallback =
+    `In the last ${stats.days} days Concentr8 called you ${stats.calls} time${stats.calls === 1 ? '' : 's'} ` +
+    `and you picked something to start on ${stats.committed} of them.`;
+  const date = localDate(u);
+  const key = `${date}:${stats.calls}:${stats.committed}`; // new numbers, new summary; same numbers, same text
+  if (u.impactText && u.impactText.key === key) return u.impactText.text;
+  let text = fallback;
+  if (env.ANTHROPIC_API_KEY) {
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify({
+          model: env.ANTHROPIC_MODEL || 'claude-haiku-5-5',
+          max_tokens: 120,
+          system:
+            'You write a short note to a UC Berkeley student with ADHD about how their morning calls went. ' +
+            'Use ONLY the numbers given, never invent any. Two sentences at most, warm, specific, no guilt, no advice, ' +
+            'no emojis, no markdown. Celebrate starting, not perfection.',
+          messages: [{ role: 'user', content: JSON.stringify(stats) }],
+        }),
+        signal: AbortSignal.timeout(6000),
+      });
+      if (res.ok) {
+        const body = await res.json();
+        const t = String(body.content?.find((c) => c.type === 'text')?.text || '').replace(/\s+/g, ' ').trim();
+        if (t.length >= 20 && t.length <= 400) text = t;
+      }
+    } catch {
+      // keep the fixed sentence
+    }
+  }
+  u.impactText = { key, text };
+  save();
+  return text;
 }
 
 /**
@@ -777,6 +872,12 @@ async function route(req, res) {
     const dl = env.DOWNLOAD_BASE_URL || 'https://github.com/concentr8-app/concentr8/releases/latest/download';
     return send(res, 200, html.split('{{DOWNLOAD_BASE}}').join(dl), 'text/html; charset=utf-8');
   }
+  // Aggregate numbers only (no names, no phone numbers): what the morning call achieves across all students.
+  if (p === '/api/impact' && m === 'GET') {
+    const users = Object.values(data.users);
+    const all = impactOf(users);
+    return send(res, 200, { ...all, students: users.filter((x) => (x.callLog || []).length > 0).length });
+  }
   if (p === '/api/health' && m === 'GET') {
     return send(res, 200, {
       ok: true,
@@ -874,6 +975,9 @@ async function route(req, res) {
     if (p === '/api/me' && m === 'GET') {
       return send(res, 200, { id: u.id, phoneNumber: phoneOf(u), callTime: u.callTime, timezone: u.timezone, paused: u.paused });
     }
+    if (p === '/api/me/impact' && m === 'GET') {
+      return send(res, 200, { ...impactOf([u]), summary: await impactSummary(u) });
+    }
     if (p === '/api/me' && m === 'DELETE') {
       if (u.id === 'owner') throw httpError(400, 'The owner account cannot be deleted from the app.');
       delete data.users[u.id];
@@ -942,6 +1046,7 @@ async function route(req, res) {
       t.firstStep = firstStep;
       t.firstStepAt = new Date().toISOString();
       u.lastCallStatus = 'completed';
+      markCommitted(u, 'stuck');
       save();
       return send(res, 200, `Saved the first step: ${firstStep.replace(/\.$/, '')}. Read it back in one short, warm sentence, say the app now shows it with a 5-minute timer, and end the call.`, 'text/plain');
     }
@@ -952,6 +1057,7 @@ async function route(req, res) {
     t.focusTask = task;
     t.startTime = startTime;
     u.lastCallStatus = 'completed';
+    markCommitted(u, 'morning');
     save();
     return send(res, 200, `Saved: ${task} at ${startTime.replace(/\.$/, '')}. Confirm it in one short sentence, wish them luck and end the call.`, 'text/plain');
   }
