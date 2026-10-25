@@ -10,6 +10,7 @@ const { describeActivity } = window.Concentr8ActivityView;
 
 let state = null;
 let editingPlan = false;
+let planTiming = 'now';
 let connectingCanvas = false; // bCourses is optional: its connect screen opens only when asked for
 const painted = {}; // last HTML per list, so unchanged lists aren't re-rendered under the cursor
 
@@ -137,10 +138,8 @@ function paintToday() {
   $('plan-empty').hidden = showSession || showPlan;
 
   if (!showSession && !showPlan) {
-    updateIntentButton();
-    $('call-hint').textContent = settings.serverConnected
-      ? `Or pick it on the phone. Your ${hhmm12(settings.callTime)} call asks the same question.`
-      : `Connect the morning call in Settings and Concentr8 asks you this on the phone at ${hhmm12(settings.callTime)}.`;
+    updateIntentControls();
+    $('call-hint').textContent = 'Rather talk it out?';
   }
 
   if (showPlan) {
@@ -158,6 +157,7 @@ function paintToday() {
       when = 'No start time yet. Start whenever you are ready.';
     }
     $('said-when').textContent = when;
+    $('start-focus').textContent = today.startAt && new Date(today.startAt) > new Date() ? 'Start early' : 'Start focus';
     $('call-now').hidden = false;
   }
 
@@ -462,39 +462,73 @@ function closeConnect() {
 
 $('canvas-back').addEventListener('click', closeConnect);
 
-/** No time, or "now": the task starts right away. A time: it's planned and starts by itself. */
-function startsNow() {
-  const time = $('intent-time').value.trim();
-  return !time || /^now$/i.test(time);
+function updateIntentControls() {
+  const editing = editingPlan;
+  const later = planTiming === 'later';
+  $('intent-heading').textContent = editing ? 'Edit your plan' : "What's the one thing you'll start today?";
+  $('timing-choice').hidden = editing;
+  $('intent-time').hidden = !editing && !later;
+  $('intent-time').required = !editing && later;
+  $('intent-submit').textContent = editing ? 'Save changes' : later ? 'Set plan' : 'Start focus';
+  $('cancel-plan').hidden = !editing;
+  $('intent-now').classList.toggle('selected', !later);
+  $('intent-now').setAttribute('aria-pressed', String(!later));
+  $('intent-later').classList.toggle('selected', later);
+  $('intent-later').setAttribute('aria-pressed', String(later));
 }
 
-function updateIntentButton() {
-  $('intent-submit').textContent = startsNow() ? 'Start now' : 'Plan it';
+function resetIntentEditor() {
+  $('intent-task').value = '';
+  $('intent-time').value = '';
+  planTiming = 'now';
+  updateIntentControls();
 }
 
-$('intent-time').addEventListener('input', updateIntentButton);
+function choosePlanTiming(timing) {
+  planTiming = timing;
+  updateIntentControls();
+  if (timing === 'later') $('intent-time').focus();
+}
+
+$('intent-now').addEventListener('click', () => choosePlanTiming('now'));
+$('intent-later').addEventListener('click', () => choosePlanTiming('later'));
 
 $('intent-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const task = $('intent-task').value.trim();
+  const time = $('intent-time').value.trim();
   if (!task) return;
-  editingPlan = false;
-  if (startsNow()) {
+
+  if (editingPlan) {
+    editingPlan = false;
+    await c8.setIntent(task, time);
+    resetIntentEditor();
+    return;
+  }
+
+  if (planTiming === 'now') {
     await c8.setIntent(task, '');
     await c8.startFocus(task);
   } else {
-    await c8.setIntent(task, $('intent-time').value.trim());
+    if (!time) return;
+    await c8.setIntent(task, time);
   }
-  $('intent-time').value = '';
-  updateIntentButton();
+  resetIntentEditor();
 });
 
 $('change-plan').addEventListener('click', () => {
   editingPlan = true;
   $('intent-task').value = state.today.focusTask || '';
   $('intent-time').value = state.today.startTime || '';
+  planTiming = state.today.startTime ? 'later' : 'now';
   paint();
   $('intent-task').focus();
+});
+
+$('cancel-plan').addEventListener('click', () => {
+  editingPlan = false;
+  resetIntentEditor();
+  paint();
 });
 
 $('start-focus').addEventListener('click', () => c8.startFocus());
@@ -516,6 +550,7 @@ async function requestCallNow(status) {
 }
 
 $('call-now').addEventListener('click', busy($('call-now'), () => requestCallNow()));
+$('call-now-empty').addEventListener('click', busy($('call-now-empty'), () => requestCallNow()));
 $('call-now-settings').addEventListener(
   'click',
   busy($('call-now-settings'), () => requestCallNow($('call-now-status'))),

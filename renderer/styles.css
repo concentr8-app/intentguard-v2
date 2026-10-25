@@ -159,15 +159,22 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 .ask { font-family: var(--display); font-size: 30px; line-height: 1.15; letter-spacing: -0.015em; font-weight: 700; max-width: 18ch; margin-bottom: var(--s5); }
 
-.intent-form { display: flex; gap: var(--s2); max-width: 640px; }
+.intent-form { display: flex; align-items: stretch; gap: var(--s2); max-width: 760px; }
 .big-input, .time-input {
   font: 17px var(--ui); color: var(--ink);
   border: 1px solid var(--line); background: #fff; border-radius: 10px; padding: 12px 14px;
 }
 .big-input { flex: 1; min-width: 0; }
-.time-input { width: 130px; }
+.time-input { width: 210px; }
 .big-input:focus, .time-input:focus { border-color: var(--leaf); outline: none; box-shadow: 0 0 0 3px rgba(47, 107, 63, 0.15); }
-.intent-form .primary { padding: 0 22px; border-radius: 10px; }
+.intent-form .primary { min-height: 46px; padding: 0 22px; border-radius: 10px; white-space: nowrap; }
+.intent-actions { display: flex; align-items: center; gap: var(--s2); }
+.timing-choice { display: flex; padding: 3px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper-deep); }
+.timing-option { min-width: 64px; background: transparent; color: var(--moss); font-weight: 600; }
+.timing-option.selected { background: #fff; color: var(--leaf-dark); box-shadow: 0 1px 3px rgba(29, 42, 32, 0.12); }
+.call-option { display: flex; align-items: center; gap: var(--s2); margin-top: var(--s3); }
+.call-option .hint { margin-top: 0; }
+.call-option .link { padding: 4px; }
 
 .hint { color: var(--moss); margin-top: var(--s3); font-size: 13px; }
 
@@ -274,6 +281,8 @@ button:disabled { opacity: 0.5; cursor: default; }
   .home { grid-template-columns: 1fr; }
   .tasks { border-left: 0; border-top: 1px solid var(--line); }
   .today { padding: var(--s6) var(--s5); }
+  .intent-form { flex-wrap: wrap; }
+  .big-input { flex-basis: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
