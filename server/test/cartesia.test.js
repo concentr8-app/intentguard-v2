@@ -235,6 +235,7 @@ test('first step: Claude through the server, only for signed-in students, with a
     const sent = claudeCalls[0];
     assert.equal(sent.headers['x-api-key'], 'sk-ant-test');
     assert.equal(sent.body.output_config, undefined, 'no structured outputs: their first-use latency could pass the app timeout');
+    assert.deepEqual(sent.body.thinking, { type: 'disabled' }, 'thinking would use up max_tokens on Sonnet 5 and newer');
     assert.match(sent.body.system, /Reply with JSON only/);
     assert.match(sent.body.messages[0].content, /Task: Project 2\nCourse: COMPSCI 188/);
     assert.match(sent.body.messages[0].content, /Retry 2\. This step was still too big: "Read the spec"/);
