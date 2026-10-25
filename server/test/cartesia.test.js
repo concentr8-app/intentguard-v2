@@ -376,3 +376,17 @@ test('/api/relevance: Claude judges an unclear page, only with intent, app, titl
     if (saved === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = saved;
   }
 });
+
+test('/api/relevance passes on the reason when Claude refuses (e.g. no credits)', async () => {
+  const s = await signup('4155556666');
+  const saved = process.env.ANTHROPIC_API_KEY;
+  try {
+    process.env.ANTHROPIC_API_KEY = 'sk-ant-test';
+    claudeAnswer = () => ({ status: 400, json: { error: { message: 'Your credit balance is too low to access the Anthropic API.' } } });
+    const r = await post('/api/relevance', { intent: 'Project 2', title: 'x' }, s.token);
+    assert.equal(r.status, 502);
+    assert.match(JSON.stringify(await r.json()), /credit balance is too low/);
+  } finally {
+    if (saved === undefined) delete process.env.ANTHROPIC_API_KEY; else process.env.ANTHROPIC_API_KEY = saved;
+  }
+});
