@@ -103,6 +103,8 @@ export function isBrowser(app: string): boolean {
 function isExplicitBlankUrl(raw: string): boolean {
   const url = raw.trim().toLowerCase();
   if (url === 'about:blank' || url === 'about:newtab') return true;
+  // Safari's start page (Favorites / Top Sites).
+  if (/^(favorites|topsites):\/\//.test(url)) return true;
   return /^(chrome|edge|brave|arc):\/\/(newtab|new-tab-page)\/?(?:[?#].*)?$/.test(url);
 }
 

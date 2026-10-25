@@ -21,6 +21,14 @@ export interface FocusDeps {
 }
 
 /** After a block, the same distraction is blocked again without a second warning for this long. */
+/**
+ * Only real pages can be restored. Browser start pages such as Safari's `favorites://` fail to
+ * load when set by script ("WebKitErrorDomain:101"), so they are never remembered as a work tab.
+ */
+export function isRestorableUrl(url: string | null | undefined): url is string {
+  return !!url && /^(https?|file):\/\//i.test(url.trim());
+}
+
 const REPEAT_WINDOW_MS = 2 * 60_000;
 
 export class FocusEngine {
@@ -146,8 +154,9 @@ export class FocusEngine {
         this.log(this.drift.target, 'returned');
         this.drift = null;
       }
-      if (activity.url && verdict.kind === 'focus') this.lastRelevantUrl = activity.url;
-      else if (activity.url && !this.lastRelevantUrl) this.lastRelevantUrl = activity.url;
+      if (isRestorableUrl(activity.url)) {
+        if (verdict.kind === 'focus' || !this.lastRelevantUrl) this.lastRelevantUrl = activity.url;
+      }
       this.deps.onChange();
       return null;
     }
@@ -191,10 +200,10 @@ export class FocusEngine {
     let done = false;
     let where = '';
     if ((SCRIPTABLE_BROWSERS as readonly string[]).includes(app)) {
-      const back = this.lastRelevantUrl || session.taskUrl || this.deps.fallbackUrl();
+      const back = [this.lastRelevantUrl, session.taskUrl, this.deps.fallbackUrl()].find(isRestorableUrl);
       if (back) {
         done = await platform.redirect(app, back);
-        where = 'your last work tab';
+        where = back === this.lastRelevantUrl ? 'your last work tab' : back === session.taskUrl ? 'the assignment' : 'your courses';
       }
       if (!done) done = await platform.closeTab(app);
     } else if ((TITLE_ONLY_BROWSERS as readonly string[]).includes(app)) {
