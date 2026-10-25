@@ -354,7 +354,7 @@ async function claudeUnderstand(u, speech) {
 // ---------- is Claude working? ----------
 // The last outcome of every Claude feature, shown (without any secret or student data) in /api/health, so a
 // deployment can be checked from outside: is the key set, does Claude answer, and did each feature work last time.
-const claudeStatus = { selfTest: null, greeting: null, firstStep: null, summary: null };
+const claudeStatus = { selfTest: null, greeting: null, firstStep: null, summary: null, relevance: null };
 // The deploy workflow writes build.json with the commit, so a check after a deploy knows the new server is live.
 const BUILD = (() => {
   try {
@@ -470,6 +470,68 @@ async function claudeFirstStep(body) {
   const minutes = Math.min(10, Math.max(2, Math.round(Number(value.minutes) || 5)));
   noteClaude('firstStep', true);
   return { step, minutes };
+}
+
+// ---------- Claude checks a page the app cannot judge on its own ----------
+// During a focus session the app decides most pages itself (known distractions, course pages). For a page it cannot
+// judge, it sends only the intent, the app name, the page title and host/path/search query; nothing is stored here.
+
+const MAX_RELEVANCE_PER_USER_PER_DAY = Number(env.MAX_RELEVANCE_PER_USER_PER_DAY || 800);
+const MAX_RELEVANCE_PER_DAY = Number(env.MAX_RELEVANCE_PER_DAY || 20000);
+
+const RELEVANCE_SYSTEM_PROMPT = [
+  'A university student started a focus session for the intent below. Decide whether the activity directly helps with that intent.',
+  'relevant: the page or app is for this intent (its course page, documents, research or tools for it).',
+  'unrelated: clearly something else, like sports, entertainment, social media, shopping, games or news that do not belong to the intent. A search counts by what was searched for.',
+  'uncertain: anything you cannot tell from the given text. Prefer uncertain over a wrong guess.',
+  'confidence is how sure you are, from 0 to 1. Keep reason under 15 words, addressed to the student, kind and without blame.',
+  'Reply with JSON only, no other text: {"relevance": "relevant" | "unrelated" | "uncertain", "confidence": <0 to 1>, "reason": "<short>"}',
+].join(' ');
+
+async function claudeRelevance(body) {
+  const intent = oneLine(body.intent, 300);
+  if (!intent) throw httpError(400, 'Missing intent.');
+  const lines = [
+    `Intent: ${intent}`,
+    `App: ${oneLine(body.app, 100) || '(unknown)'}`,
+    `Title: ${oneLine(body.title, 300) || '(none)'}`,
+    `Location: ${oneLine(body.location, 500) || '(none)'}`,
+  ];
+  let res;
+  try {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      body: JSON.stringify({ model: claudeModel(), max_tokens: 120, system: RELEVANCE_SYSTEM_PROMPT, messages: [{ role: 'user', content: lines.join('\n') }] }),
+      signal: AbortSignal.timeout(7000),
+    });
+  } catch (err) {
+    noteClaude('relevance', false, err.name);
+    throw httpError(502, `Claude did not answer (${err.name})`);
+  }
+  if (!res.ok) {
+    const why = await claudeError(res);
+    console.error(`[relevance] ${why}`);
+    noteClaude('relevance', false, why);
+    throw httpError(502, why);
+  }
+  const data = await res.json();
+  const text = String((data.content || []).find((c) => c.type === 'text')?.text || '');
+  let value;
+  try {
+    value = JSON.parse(text.slice(text.indexOf('{'), text.lastIndexOf('}') + 1));
+  } catch {
+    noteClaude('relevance', false, 'no JSON');
+    throw httpError(502, 'Claude did not answer with JSON');
+  }
+  const relevance = ['relevant', 'unrelated', 'uncertain'].includes(value.relevance) ? value.relevance : null;
+  const confidence = Number(value.confidence);
+  if (!relevance || !Number.isFinite(confidence) || confidence < 0 || confidence > 1) {
+    noteClaude('relevance', false, 'answer did not fit');
+    throw httpError(502, 'Claude did not answer with a usable result');
+  }
+  noteClaude('relevance', true);
+  return { relevance, confidence, reason: oneLine(value.reason, 160) };
 }
 
 // ---------- optional: read Canvas directly, so the call works even when the Mac is off ----------
@@ -967,7 +1029,7 @@ async function route(req, res) {
       cartesiaNumber: !!env.CARTESIA_PHONE_NUMBER_ID,
       cartesiaToolSecret: !!env.CARTESIA_WEBHOOK_SECRET,
       cartesiaStuckAgent: !!env.CARTESIA_STUCK_AGENT_ID,
-      features: [...(stuckCallReady() ? ['stuck-call'] : []), ...(env.ANTHROPIC_API_KEY ? ['first-step'] : [])],
+      features: [...(stuckCallReady() ? ['stuck-call'] : []), ...(env.ANTHROPIC_API_KEY ? ['first-step', 'relevance'] : [])],
       build: BUILD,
       claude: { key: !!env.ANTHROPIC_API_KEY, model: claudeModel(), ...claudeStatus },
       users: Object.keys(data.users).length,
@@ -1043,6 +1105,21 @@ async function route(req, res) {
       const result = await claudeFirstStep(body);
       u.steps.count += 1;
       g.steps = (g.steps || 0) + 1;
+      save();
+      return send(res, 200, result);
+    }
+    if (p === '/api/relevance' && m === 'POST') {
+      if (!env.ANTHROPIC_API_KEY) throw httpError(503, 'This call server has no Claude key.');
+      let body;
+      try { body = JSON.parse((await readBody(req)) || '{}'); } catch { throw httpError(400, 'The request body is not valid JSON.'); }
+      const date = localDate(u);
+      if (!u.relevance || u.relevance.date !== date) u.relevance = { date, count: 0 };
+      if (u.relevance.count >= MAX_RELEVANCE_PER_USER_PER_DAY) throw httpError(429, 'Too many page checks today.');
+      const g = globalToday();
+      if ((g.relevance || 0) >= MAX_RELEVANCE_PER_DAY) throw httpError(429, 'The server reached its daily page-check limit.');
+      const result = await claudeRelevance(body);
+      u.relevance.count += 1;
+      g.relevance = (g.relevance || 0) + 1;
       save();
       return send(res, 200, result);
     }

@@ -12,6 +12,7 @@ the student's own token (from `/api/register`), or `APP_API_KEY` for the server'
 | GET | `/api/health` | | `{ "ok": true, "provider": "telnyx", "users": 3, "signupsOpen": true, … }` (no secrets, no phone numbers) |
 | POST | `/api/register` | `{ "phoneNumber", "inviteCode", "consent": true, "callTime"?, "timezone"? }` | `{ "ok": true, "userId", "token" }`. In invite mode, needs `REGISTER_CODE`. In open-signup mode, an existing number needs `RECOVERY_CODE`; recovery replaces the old token |
 | GET | `/api/me` | | `{ "id", "phoneNumber", "callTime", "timezone", "paused" }` |
+| POST | `/api/relevance` | `{ "intent", "app", "title", "location" }` (location = host, path and search query only) | `{ "relevance": "relevant" \| "unrelated" \| "uncertain", "confidence", "reason" }` from Claude, for pages the app cannot judge itself. Nothing is stored. 503 without a Claude key, 502 on an odd answer (the app stays neutral), 429 over the daily cap |
 | GET | `/api/me/impact` | | `{ "days", "calls", "committed", "commitRate", "medianSecondsToCommit", "summary" }`: this student's last 14 days. A call is "committed" once the agent saved a plan or step within 30 minutes. `summary` is two kind sentences from Claude (fixed sentence without a key), cached per day |
 | GET | `/api/impact` | | the same numbers across all students plus `students`; no auth, no personal data |
 | DELETE | `/api/me` | | `{ "ok": true }` removes the student and their data |

@@ -285,6 +285,11 @@ export class Controller {
 
   // ---------- call server ----------
 
+  /** The signed-in call server, for providers that ask it (the page check). */
+  callServerClient(): CallServerClient | null {
+    return this.server();
+  }
+
   private server(): CallServerClient | null {
     const key = this.store.serverApiKey;
     if (!this.settings.serverUrl || !key) return null;
