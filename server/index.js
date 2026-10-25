@@ -795,8 +795,15 @@ async function route(req, res) {
     if (!phone) throw httpError(400, 'That phone number does not look right. Use the +1 415 555 1234 format.');
     const g = globalToday();
     let u = userByPhone(phone);
-    // Without an invite code, anyone could sign up with someone else's number and take over that account.
-    if (u && openSignups()) throw httpError(409, 'This number is already signed up. Open the app on the Mac you used first, or write to the Concentr8 team.');
+    // Open sign-ups cannot prove phone ownership. Reissuing an existing account therefore needs
+    // a separate operator-provided recovery code rather than only the public phone number.
+    if (u && openSignups()) {
+      const recoveryCode = String(env.RECOVERY_CODE || '');
+      const givenCode = String(body.inviteCode || '').trim();
+      if (!recoveryCode || !safeEqual(givenCode, recoveryCode)) {
+        throw httpError(409, 'This number is already signed up. Enter the recovery code from the Concentr8 team.');
+      }
+    }
     if (!u) {
       if (g.signups >= MAX_SIGNUPS_PER_DAY) throw httpError(429, 'Too many sign-ups today. Try again tomorrow.');
       g.signups += 1;

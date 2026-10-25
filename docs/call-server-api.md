@@ -10,7 +10,7 @@ the student's own token (from `/api/register`), or `APP_API_KEY` for the server'
 | Method | Path | Body | Response |
 |---|---|---|---|
 | GET | `/api/health` | | `{ "ok": true, "provider": "telnyx", "users": 3, "signupsOpen": true, … }` (no secrets, no phone numbers) |
-| POST | `/api/register` | `{ "phoneNumber", "inviteCode", "consent": true, "callTime"?, "timezone"? }` | `{ "ok": true, "userId", "token" }`. Needs `REGISTER_CODE` on the server; signing up again with the same number issues a new token |
+| POST | `/api/register` | `{ "phoneNumber", "inviteCode", "consent": true, "callTime"?, "timezone"? }` | `{ "ok": true, "userId", "token" }`. In invite mode, needs `REGISTER_CODE`. In open-signup mode, an existing number needs `RECOVERY_CODE`; recovery replaces the old token |
 | GET | `/api/me` | | `{ "id", "phoneNumber", "callTime", "timezone", "paused" }` |
 | DELETE | `/api/me` | | `{ "ok": true }` removes the student and their data |
 | POST | `/api/tasks` | `{ "tasks": [{ "id", "title", "course", "dueAt", "url" }] }` | `{ "ok": true, "count": 2 }` (replaces the stored list) |

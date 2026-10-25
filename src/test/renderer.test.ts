@@ -30,11 +30,21 @@ test('activity view exposes the page title and complete URL', () => {
   );
 });
 
-test('connected call settings keep Call me now available after a completed call', () => {
+test('Call me now remains discoverable and disconnected users are sent to recovery', () => {
   const html = fs.readFileSync(path.join(__dirname, '../../renderer/index.html'), 'utf8');
   const app = fs.readFileSync(path.join(__dirname, '../../renderer/app.js'), 'utf8');
 
+  assert.match(html, /id="plan-set"[\s\S]*id="call-now"/);
   assert.match(html, /id="connected-block"[\s\S]*id="call-now-settings"/);
+  assert.doesNotMatch(app, /\$\('call-now'\)\.hidden = !settings\.serverConnected/);
+  assert.match(app, /if \(!state\.settings\.serverConnected\) \{[\s\S]*openSettings\(\);[\s\S]*recovery code/);
   assert.match(app, /\$\('call-now-settings'\)\.addEventListener/);
   assert.match(app, /requestCallNow\(\$\('call-now-status'\)\)/);
+});
+
+test('forgetting the call connection warns that recovery is required', () => {
+  const app = fs.readFileSync(path.join(__dirname, '../../renderer/app.js'), 'utf8');
+
+  assert.match(app, /\$\('server-disconnect'\)\.addEventListener[\s\S]*window\.confirm[\s\S]*recovery code[\s\S]*disconnectServer/);
+  assert.match(app, /Saved locally\. Reconnect morning calls to update your call time\./);
 });
