@@ -193,13 +193,10 @@ footer{padding:0 0 48px;color:var(--mute);font-size:.9rem}
       <h2>Questions</h2>
       <div class="faq">
         <details>
-          <summary>How do I open the app the first time?</summary>
-          <p>The app is not signed by Apple yet, so macOS asks once.</p>
-          <ol class="steps">
-            <li>Open the download and drag Concentr8 into Applications.</li>
-            <li>Right-click Concentr8 in Applications and choose Open.</li>
-            <li>Choose Open again in the window that appears.</li>
-          </ol>
+          <summary>macOS says the app is damaged. What do I do?</summary>
+          <p>The app is not signed by Apple yet, so macOS blocks it after the download. It is not damaged. Open Terminal (press cmd and space, type Terminal) and run this once:</p>
+          <p><code style="display:block;margin-top:10px;padding:12px 14px;border-radius:10px;background:var(--paper);border:1px solid var(--line);font:0.95rem ui-monospace,Menlo,monospace;overflow-x:auto">xattr -cr /Applications/Concentr8.app</code></p>
+          <p>Then open Concentr8 from Applications as usual. If macOS only asks whether you want to open it, choose Open.</p>
         </details>
         <details>
           <summary>What does the app need permission for?</summary>
