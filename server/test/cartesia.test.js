@@ -215,11 +215,14 @@ test('first step: Claude through the server, only for signed-in students, with a
     assert.deepEqual(await r.json(), { step: 'Open search.py and read the comment above depthFirstSearch.', minutes: 5 });
     const sent = claudeCalls[0];
     assert.equal(sent.headers['x-api-key'], 'sk-ant-test');
-    assert.ok(sent.body.output_config.format.schema, 'structured output');
+    assert.equal(sent.body.output_config, undefined, 'no structured outputs: their first-use latency could pass the app timeout');
+    assert.match(sent.body.system, /Reply with JSON only/);
     assert.match(sent.body.messages[0].content, /Task: Project 2\nCourse: COMPSCI 188/);
     assert.match(sent.body.messages[0].content, /Retry 2\. This step was still too big: "Read the spec"/);
 
     assert.equal((await post('/api/first-step', { course: 'x' }, s.token)).status, 400, 'a task is required');
+    claudeAnswer = () => ({ status: 200, json: { stop_reason: 'end_turn', content: [{ type: 'text', text: 'Sure! {"step":"Open search.py.","minutes":4}' }] } });
+    assert.deepEqual(await (await post('/api/first-step', { task: 'Project 2' }, s.token)).json(), { step: 'Open search.py.', minutes: 4 }, 'text around the JSON is fine');
     claudeAnswer = () => ({ status: 200, json: { stop_reason: 'end_turn', content: [{ type: 'text', text: 'not json' }] } });
     assert.equal((await post('/api/first-step', { task: 'Project 2' }, s.token)).status, 502, 'a broken answer is an error, so the app falls back');
     claudeAnswer = () => ({ status: 529, json: {} });
