@@ -1126,7 +1126,9 @@ async function route(req, res) {
       u.lastCallStatus = 'completed';
       markCommitted(u, 'stuck');
       save();
-      return send(res, 200, `Saved the first step: ${firstStep.replace(/\.$/, '')}. Read it back in one short, warm sentence, say the app now shows it with a 5-minute timer, and end the call.`, 'text/plain');
+      // The closing line is fixed here, so every stuck call ends the same way (docs/CALL-SCRIPT.md).
+      const step = firstStep.replace(/\.$/, '');
+      return send(res, 200, `Saved the first step: ${step}. Now say exactly: "Great. ${step}. It's on your Mac now, with a five-minute timer. You've got this." Then end the call.`, 'text/plain');
     }
     const task = String(body.task || '').trim().slice(0, 200);
     const startTime = String(body.start_time || '').trim().replace(/[!?]+$/, '').slice(0, 60);
@@ -1137,7 +1139,10 @@ async function route(req, res) {
     u.lastCallStatus = 'completed';
     markCommitted(u, 'morning');
     save();
-    return send(res, 200, `Saved: ${task} at ${startTime.replace(/\.$/, '')}. Confirm it in one short sentence, wish them luck and end the call.`, 'text/plain');
+    // The closing line is fixed here, so every planning call ends the same way (docs/CALL-SCRIPT.md).
+    const when = startTime.replace(/\.$/, '');
+    const said = /^now$/i.test(when) ? `Locked in: ${task}, starting now. Good luck.` : `Locked in: ${task} at ${when}. Good luck.`;
+    return send(res, 200, `Saved: ${task} at ${when}. Now say exactly: "${said}" Then end the call.`, 'text/plain');
   }
 
   // --- phone-provider webhooks (Twilio and Telnyx TeXML speak the same XML) ---

@@ -346,3 +346,11 @@ test("greetingFor: the greeting follows the student's local time", () => {
   assert.equal(greetingFor(u, new Date('2026-10-25T21:00:00Z')), 'Hi'); // 14:00
   assert.equal(greetingFor(u, new Date('2026-10-26T01:00:00Z')), 'Good evening'); // 18:00
 });
+
+test('the tools tell the agent the exact closing line (docs/CALL-SCRIPT.md)', async () => {
+  const s = await signup('4155554444');
+  const save = (body) => fetch(base + '/cartesia/save-plan', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer tool-secret' }, body: JSON.stringify({ user_id: s.userId, ...body }) }).then((r) => r.text());
+  assert.match(await save({ task: 'Project 2', start_time: '9:30 a.m.' }), /say exactly: "Locked in: Project 2 at 9:30 a\.m\. Good luck\."/);
+  assert.match(await save({ task: 'Project 2', start_time: 'now' }), /"Locked in: Project 2, starting now\. Good luck\."/);
+  assert.match(await save({ first_step: 'Open the project and read only question 1.' }), /"Great\. Open the project and read only question 1\. It's on your Mac now, with a five-minute timer\. You've got this\."/);
+});
