@@ -23,16 +23,22 @@
 
       <form id="canvas-form" class="stack">
         <p class="muted"><strong>Want visible focus nudges?</strong> Open System Settings → Notifications → Concentr8, turn on Allow Notifications, and choose Banners.</p>
+        <p class="muted"><strong>What is this?</strong> An access token is a long password-like code that bCourses creates for you. It lets Concentr8 read your assignments and due dates, nothing else. You make it yourself in bCourses, and you can delete it there any time.</p>
         <ol class="howto">
-          <li>Open <a href="https://bcourses.berkeley.edu/profile/settings" data-external>bCourses → Account → Settings</a>.</li>
-          <li>Under <em>Approved integrations</em>, choose <em>New access token</em>. Name it “Concentr8”.</li>
-          <li>Copy the token and paste it here.</li>
+          <li>Log in to bCourses in your browser, then open <a href="https://bcourses.berkeley.edu/profile/settings" data-external>Account → Settings</a> (your profile picture on the left, then <em>Settings</em>).</li>
+          <li>Scroll down to <em>Approved Integrations</em> and click <em>+ New Access Token</em>.</li>
+          <li>Purpose: type “Concentr8”. Leave <em>Expires</em> empty or pick a date, then click <em>Generate Token</em>.</li>
+          <li>Copy the long code that appears. bCourses shows it only once, so copy it right away and paste it below.</li>
         </ol>
+        <details class="more">
+          <summary>Can't find it, or no “New Access Token” button?</summary>
+          <p class="muted">Some accounts can't create tokens. Use the calendar feed instead: open <em>Calendar</em> in bCourses, click <em>Calendar Feed</em> at the bottom right of the page, copy the link, and paste it in the field below instead of a token.</p>
+          <p class="muted">Tokens can expire (at Berkeley after at most 90 days). If your courses stop syncing, make a new token the same way and paste it again. The token is stored only on this Mac, in the keychain.</p>
+        </details>
         <label class="field">
           <span>Access token</span>
-          <input id="canvas-token" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your bCourses token" required>
+          <input id="canvas-token" type="password" autocomplete="off" spellcheck="false" placeholder="Paste your token or calendar feed link" required>
         </label>
-        <p class="muted">No “New access token” button? Open Calendar in bCourses, click <em>Calendar Feed</em> at the bottom right, and paste that link here instead.</p>
         <details class="more">
           <summary>Not at Berkeley?</summary>
           <label class="field">

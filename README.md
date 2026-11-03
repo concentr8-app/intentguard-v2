@@ -57,7 +57,7 @@ The app opens on one question: what will you start? Type any task, such as “Bu
 
 ### Connect bCourses (optional)
 
-Choose **Add your courses** in the task list (or Settings → bCourses). In bCourses, go to **Account → Settings → New access token**, name it Concentr8, and paste the token into the app. If token creation is unavailable, open **Calendar → Calendar Feed** and paste that link instead. **Add sample assignments** works without an account.
+Choose **Add your courses** in the task list (or Settings → bCourses). An access token is a password-like code that lets Concentr8 read your assignments and due dates. To create one, log in to bCourses, go to **Account → Settings → Approved Integrations → + New Access Token**, set the purpose to "Concentr8" (expiry optional), click **Generate Token**, copy the code right away (bCourses shows it only once) and paste it into the app. If token creation is unavailable, open **Calendar → Calendar Feed** and paste that link instead. **Add sample assignments** works without an account.
 
 The token is stored with Electron `safeStorage` and the macOS keychain.
 
